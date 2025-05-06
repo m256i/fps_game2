@@ -41,7 +41,7 @@ int main() {
     exit(1);
   }
 
-  window *pwin = create_window("game client", 800, 600, false);
+  window *pwin = create_window("game client", 1920, 1080, true);
   GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
 
   vk_context vk_ctx;
@@ -78,7 +78,7 @@ int main() {
     window_check_events(pwin);
     bind_vulkan_surface(&vk_ctx);
 
-    float time = (float)RGFW_getTimeNS() * 0.00000001;
+    float time = (float)RGFW_getTimeNS() * 0.000000005;
     float offset = sinf(time) * 0.5f;
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);

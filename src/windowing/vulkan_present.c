@@ -1,6 +1,7 @@
 // peak shitcode incoming
 #include <windowing/vulkan_present.h>
 #include <glad/glad.h>
+#include <assert.h>
 
 #define CHECK_VK(result, msg)                                                                                          \
   if (result != VK_SUCCESS) {                                                                                          \
@@ -150,7 +151,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_printer(VkDebugUtilsMessageSeverityF
 
 u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h) {
   memset(_context, 0, sizeof *_context);
-
+#ifdef GAME_DEBUG
   {
     u32 lc = 0;
     vkEnumerateInstanceLayerProperties(&lc, NULL);
@@ -181,31 +182,41 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
       .pfnUserCallback = debug_printer,
       .pUserData = NULL
   };
+#endif
 
   VkApplicationInfo app_info = {
       .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-      .pApplicationName = "game_engine_client",
+      .pApplicationName = GAME_CLIENT_VER_STR,
       .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
       .pEngineName = "None",
       .engineVersion = VK_MAKE_VERSION(1, 0, 0),
       .apiVersion = VK_API_VERSION_1_1,
   };
 
+#ifdef GAME_DEBUG
   const char *layers[] = {"VK_LAYER_KHRONOS_validation"};
+#endif
   const char *instance_extensions[] = {
       VK_KHR_SURFACE_EXTENSION_NAME,
       VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#ifdef GAME_DEBUG
       VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-  };
+#endif
+      VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME
+    };
 
   VkInstanceCreateInfo instance_info = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
       .pApplicationInfo = &app_info,
+#ifdef GAME_DEBUG
       .enabledExtensionCount = 3,
       .enabledLayerCount = 1,
       .ppEnabledLayerNames = layers,
+      .pNext = &debug_create_info,
+      #else
+      .enabledExtensionCount = 2,
+#endif
       .ppEnabledExtensionNames = instance_extensions,
-      .pNext = &debug_create_info
   };
 
   VkInstance instance;
@@ -218,12 +229,14 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     return;
   }
 
+#ifdef GAME_DEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
   PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
       (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
   if (vkCreateDebugUtilsMessengerEXT != NULL) {
     vkCreateDebugUtilsMessengerEXT(instance, &debug_create_info, NULL, &debug_messenger);
   }
+#endif
 
   VkPhysicalDevice phys_dev;
   vkEnumeratePhysicalDevices(instance, &gpu_count, &phys_dev);
@@ -241,13 +254,14 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
     VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
     VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
+    VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME,
   };
 
   VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &queue_info,
-      .enabledExtensionCount = 4,
+      .enabledExtensionCount = 5,
       .ppEnabledExtensionNames = device_extensions,
   };
 
@@ -310,6 +324,20 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
   _context->surface_format = format;
 
+  VkSurfaceFullScreenExclusiveWin32InfoEXT win32Info = {
+      .sType    = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT,
+      .pNext    = NULL,
+      .hmonitor = MonitorFromWindow(_window_handle, MONITOR_DEFAULTTOPRIMARY)
+  };
+
+  assert(win32Info.hmonitor != NULL);
+
+  VkSurfaceFullScreenExclusiveInfoEXT fsInfo = {
+      .sType               = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT,
+      .pNext               = &win32Info,                                  // will point to win32Info
+      .fullScreenExclusive = VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT
+  };
+
   VkSwapchainCreateInfoKHR sci = {
       .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
       .surface = surface,
@@ -325,11 +353,21 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
       .presentMode = present_mode,
       .clipped = VK_TRUE,
       .oldSwapchain = VK_NULL_HANDLE,
-      .pNext = NULL,
+      .pNext = &fsInfo,
   };
 
   VkSwapchainKHR swapchain;
   CHECK_VK(vkCreateSwapchainKHR(device, &sci, NULL, &swapchain), "failed to create swapchain");
+
+  PFN_vkAcquireFullScreenExclusiveModeEXT vkAcquireFullScreenExclusiveModeEXT =
+    (PFN_vkAcquireFullScreenExclusiveModeEXT)vkGetInstanceProcAddr(instance, "vkAcquireFullScreenExclusiveModeEXT");
+
+  if (vkAcquireFullScreenExclusiveModeEXT == NULL) {
+    GAME_LOGF("failed to load vkAcquireFullScreenExclusiveModeEXT");
+    exit(1);
+  }
+
+  CHECK_VK(vkAcquireFullScreenExclusiveModeEXT(device, swapchain), "vkAcquireFullScreenExclusiveModeEXT failed");
 
   _context->vk_surface = surface;
   _context->vk_swapchain = swapchain;
@@ -504,7 +542,7 @@ u0 vulkan_present(vk_context *ctx) {
   };
   vkBeginCommandBuffer(cmd, &bi);
 
-  VkImageMemoryBarrier pre_barrier = {
+  const VkImageMemoryBarrier pre_barrier = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
       .srcAccessMask = 0,
       .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -524,20 +562,14 @@ u0 vulkan_present(vk_context *ctx) {
     &pre_barrier
   );
 
-  VkImageBlit blit = {
-      .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-      .srcOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}},
-      .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-      .dstOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}}
-  };
 
-  VkImageMemoryBarrier midBarrier = pre_barrier;
+  VkImageMemoryBarrier mid_barrier = pre_barrier;
   {
-    midBarrier.image = ctx->images[image_index];
-    midBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    midBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    midBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    midBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    mid_barrier.image = ctx->images[image_index];
+    mid_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    mid_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    mid_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    mid_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
   }
 
   vkCmdPipelineBarrier(
@@ -545,26 +577,34 @@ u0 vulkan_present(vk_context *ctx) {
     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
     VK_PIPELINE_STAGE_TRANSFER_BIT, 
     0, 0, NULL, 0, NULL, 1, 
-    &midBarrier
+    &mid_barrier
   );
 
-  vkCmdBlitImage(
-    cmd, 
-    ctx->images[image_index], 
-    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-    ctx->swapchain_images[image_index], 
-    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-    1, 
-    &blit, VK_FILTER_LINEAR
+  const VkImageCopy copy = {
+      .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+      .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+      .dstOffset = {0, 0, 0},
+      .srcOffset = {0, 0, 0},
+      .extent = {ctx->texture_width, ctx->texture_height, 1},
+  };
+
+  vkCmdCopyImage(
+    cmd,
+    ctx->images[image_index],
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    ctx->swapchain_images[image_index],
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    1,
+    &copy
   );
 
-  VkImageMemoryBarrier postBarrier = pre_barrier;
+  VkImageMemoryBarrier post_barrier = pre_barrier;
   {
-    postBarrier.image = ctx->swapchain_images[image_index];
-    postBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    postBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    postBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    postBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    post_barrier.image = ctx->swapchain_images[image_index];
+    post_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    post_barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    post_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    post_barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
   }
 
   vkCmdPipelineBarrier(
@@ -572,7 +612,7 @@ u0 vulkan_present(vk_context *ctx) {
     VK_PIPELINE_STAGE_TRANSFER_BIT, 
     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
     0, 0, NULL, 0, NULL, 
-    1, &postBarrier
+    1, &post_barrier
   );
 
   vkEndCommandBuffer(cmd);

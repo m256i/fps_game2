@@ -21,7 +21,7 @@ static u0 exclusive_fullscreen_hint(HWND hwnd, usize _width, usize _height) {
 static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
   if (inFocus) {
     GAME_LOGF("in focus!");
-    exclusive_fullscreen_hint(win->src.window, RGFW_getScreenSize().w, RGFW_getScreenSize().h);
+    // exclusive_fullscreen_hint(win->src.window, RGFW_getScreenSize().w, RGFW_getScreenSize().h);
     RGFW_window_setFullscreen(win, RGFW_TRUE);
   }
 }
@@ -38,7 +38,7 @@ window *create_window(const char *const _name, usize _w, usize _h, bool _fullscr
   out_window->screen_height = _h;
 
   if (_fullscreen) {
-#ifdef _WIN64
+#ifdef ASDASD
     DEVMODEA dm = {0};
     dm.dmSize = sizeof(dm);
     EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &dm);
@@ -53,8 +53,9 @@ window *create_window(const char *const _name, usize _w, usize _h, bool _fullscr
 #endif
     win = RGFW_createWindow(
         _name, winsize, RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor | RGFW_windowNoInitAPI);
-    RGFW_setFocusCallback(on_focus_callback);
+    // RGFW_window_setFullscreen(win, RGFW_TRUE);
     exclusive_fullscreen_hint(win->src.window, _w, _h);
+    // RGFW_setFocusCallback(on_focus_callback);
   } else {
     win = RGFW_createWindow(_name, winsize, RGFW_windowCenter | RGFW_windowCenterCursor | RGFW_windowNoInitAPI);
   }
