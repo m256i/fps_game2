@@ -1,3 +1,4 @@
+// peak shitcode incoming
 #include <windowing/vulkan_present.h>
 #include <glad/glad.h>
 
@@ -524,10 +525,10 @@ u0 vulkan_present(vk_context *ctx) {
   );
 
   VkImageBlit blit = {
-    .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-    .srcOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}},
-    .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-    .dstOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}}
+      .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+      .srcOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}},
+      .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+      .dstOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}}
   };
 
   VkImageMemoryBarrier midBarrier = pre_barrier;

@@ -34,6 +34,7 @@ int main() {
 
   RGFW_window *tmp_window = RGFW_createWindow("opengl_context_window", RGFW_RECT(0, 0, 1, 1), RGFW_windowHide);
   RGFW_window_makeCurrent_OpenGL(tmp_window);
+  RGFW_window_hide(tmp_window);
 
   if (gladLoadGLLoader((GLADloadproc)RGFW_getProcAddress) == 0) {
     GAME_CRITICALF("failed to initialize glad! exiting.");
