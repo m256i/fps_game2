@@ -426,7 +426,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
     GLenum gl_format;
     switch (format.format) {
-    case VK_FORMAT_B8G8R8A8_SRGB: gl_format = GL_SRGB8_ALPHA8; break;
+    case VK_FORMAT_B8G8R8A8_SRGB: gl_format = GL_BGRA_EXT; break;
     case VK_FORMAT_R8G8B8A8_SRGB: gl_format = GL_RGBA8; break;
     default: GAME_LOGF("Unsupported format"); exit(1);
     }
@@ -554,7 +554,6 @@ u0 vulkan_present(vk_context *ctx) {
     0, 0, NULL, 0, NULL, 1,
     &pre_barrier
   );
-
 
   VkImageMemoryBarrier mid_barrier = pre_barrier;
   {
