@@ -1,0 +1,3 @@
+# Fragment common to C and C++ source files
+CompileFlags:
+  CompilationDatabase: /build

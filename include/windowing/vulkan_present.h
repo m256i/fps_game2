@@ -1,0 +1,70 @@
+#ifndef WINDOWING_VULKAN_PRESENT_H_
+#define WINDOWING_VULKAN_PRESENT_H_
+
+#define VK_USE_PLATFORM_WIN32_KHR
+#include <vulkan/vulkan.h>
+#include <glad/glad.h>
+#include <common.h>
+// clang-format off
+/* the fbos that wrap the textures that vulkan owns */
+typedef struct {
+  GLuint memory_object;
+  GLuint texture_handle;
+  GLuint fbo_handle;
+} shared_fbo;
+/* a "ringbuffer of shared textures/fbos" */
+typedef struct {
+  shared_fbo *shared_fbos;
+  usize count_fbos;
+  usize current_index;
+  /* vulkan internal semaphores */
+  VkSemaphore       *vk_wait_semaphores;   // signaled by GL, waited by Vk  [image_count] malloc
+  VkSemaphore       *vk_signal_semaphores; // signaled by Vk, waited by GL  [image_count] malloc
+  /* dummy gl names for the shared semaphores that reference the shared ones */
+  GLuint            *gl_wait_semaphores;    // [image_count] malloc
+  GLuint            *gl_signal_semaphores;  // [image_count] malloc
+} vk_sc_ringbuf;
+/* 
+vulkan data for the main client window 
+this context is bound to a specific framebuffer resolution.
+when the resolution changes or the window gets resized 
+this needs to be initialized from scratch again
+*/
+typedef struct {
+  /* a ringbuffer of image_buffer handles that OpenGL can write to */
+  vk_sc_ringbuf       swapchain;
+  /* vulkan data */
+  VkInstance          vk_instance;
+  VkDevice            vk_device;
+  VkSurfaceKHR        vk_surface;
+  VkSwapchainKHR      vk_swapchain;
+  VkQueue             vk_queue;
+  u32                 vk_queue_family;
+  /* more vulkan data */
+  VkCommandPool       cmd_pool;
+  VkCommandBuffer     *cmd_buffers;         // [image_count] malloc
+  VkFence             *inflight_fences;     // [image_count] malloc
+  VkImage             *images;              // [image_count] malloc
+  VkImage             *swapchain_images;    // [image_count] malloc
+  /* the properties of the vulkan surface/images and opengl fbos/textures */
+  usize               texture_width, texture_height;
+  VkSurfaceFormatKHR  surface_format;
+} vk_context;
+// clang-format on
+/*
+initialize a vulkan surface and context after creating/resizing viewport
+*/
+u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h);
+/*
+bind the vulkan surface as a framebuffer object in OpenGL
+*/
+u0 bind_vulkan_surface(vk_context *ctx);
+/*
+present the vulkan surface to the window
+*/
+u0 vulkan_present(vk_context *ctx);
+/*
+destroy the entire vulkan context and also free OpenGL fbos, semaphores, buffers etc...
+*/
+u0 destroy_vulkan_context(vk_context *_context);
+#endif // WINDOWING_VULKAN_PRESENT_H_
