@@ -8,7 +8,6 @@
   }
 
 // clang-format off
-
 static VkSemaphore create_exportable_semaphore(VkDevice _device) {
   VkSemaphoreCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, 
@@ -603,7 +602,7 @@ u0 vulkan_present(vk_context *ctx) {
 
 u0 destroy_vulkan_context(vk_context *_context)
 {
-
+  // TODO: implement
 }
 
 // clang-format on
