@@ -41,7 +41,10 @@ int main() {
     exit(1);
   }
 
-  window *pwin = create_window("game client", 1920, 1080, true);
+  RGFW_area monitor_size = RGFW_getScreenSize();
+  GAME_LOGF("using screen space: (%d, %d)", monitor_size.w, monitor_size.h);
+
+  window *pwin = create_window("game client", monitor_size.w, monitor_size.h, true);
   GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
 
   vk_context vk_ctx;
@@ -74,7 +77,15 @@ int main() {
 
   GLint offset_loc = glGetUniformLocation(program, "xOffset");
 
+  f64 old_time = 0;
+
   while (!window_should_close(pwin)) {
+    f64 ct = RGFW_getTimeNS() * 1e-9;
+    f64 dt = ct - old_time;
+    old_time = ct;
+
+    printf("fps: %lf\n", 1.0 / dt);
+
     window_check_events(pwin);
     bind_vulkan_surface(&vk_ctx);
 
@@ -88,7 +99,14 @@ int main() {
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
+    // const double target_dt = 1.0 / 200.0; // seconds ≈ 0.0069444
+    // static double accumulator = 0.0;
+    // accumulator += dt;
+
     vulkan_present(&vk_ctx);
+    // if (accumulator >= target_dt) {
+    //   accumulator -= target_dt;
+    // }
   }
 
   glDeleteProgram(program);

@@ -84,18 +84,8 @@ static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkS
       return VK_PRESENT_MODE_IMMEDIATE_KHR;
     }
   }
-  /* secondly check for mailbox as it is still better than FIFO */
-  for (u32 i = 0; i != present_mode_count; i++) {
-    /* we prefer immediate */
-    if (present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-      free(present_modes);
-      return VK_PRESENT_MODE_MAILBOX_KHR;
-    }
-  }
-  free(present_modes);
-  GAME_LOGF("using fallback present mode!");
-  /* fifo is a safe default */
-  return VK_PRESENT_MODE_FIFO_KHR;
+  GAME_LOGF("immediate rendering mode not available");
+  exit(1);
 }
 
 static u32 find_mem_type(u32 typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
@@ -202,19 +192,19 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 #ifdef GAME_DEBUG
       VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
-      VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME
+      VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
     };
 
   VkInstanceCreateInfo instance_info = {
       .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
       .pApplicationInfo = &app_info,
 #ifdef GAME_DEBUG
-      .enabledExtensionCount = 3,
+      .enabledExtensionCount = 4,
       .enabledLayerCount = 1,
       .ppEnabledLayerNames = layers,
       .pNext = &debug_create_info,
       #else
-      .enabledExtensionCount = 2,
+      .enabledExtensionCount = 3,
 #endif
       .ppEnabledExtensionNames = instance_extensions,
   };
@@ -255,13 +245,14 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
     VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
     VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME,
+    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
   };
 
   VkDeviceCreateInfo deviceInfo = {
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
       .queueCreateInfoCount = 1,
       .pQueueCreateInfos = &queue_info,
-      .enabledExtensionCount = 5,
+      .enabledExtensionCount = 6,
       .ppEnabledExtensionNames = device_extensions,
   };
 
@@ -367,7 +358,9 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     exit(1);
   }
 
-  CHECK_VK(vkAcquireFullScreenExclusiveModeEXT(device, swapchain), "vkAcquireFullScreenExclusiveModeEXT failed");
+  if (vkAcquireFullScreenExclusiveModeEXT(device, swapchain) != VK_SUCCESS) {
+    GAME_LOGF("couldn't acquire fullscreen exclusive mode (you are propably on windows 11 +)");
+  }
 
   _context->vk_surface = surface;
   _context->vk_swapchain = swapchain;
@@ -580,23 +573,23 @@ u0 vulkan_present(vk_context *ctx) {
     &mid_barrier
   );
 
-  const VkImageCopy copy = {
+  const VkImageBlit blit = {
       .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+      .srcOffsets = {{0, 0, 0}, {ctx->texture_width, ctx->texture_height, 1}},
       .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-      .dstOffset = {0, 0, 0},
-      .srcOffset = {0, 0, 0},
-      .extent = {ctx->texture_width, ctx->texture_height, 1},
+      .dstOffsets = {{0,  ctx->texture_height, 0},  {ctx->texture_width, 0, 1}}
   };
 
-  vkCmdCopyImage(
-    cmd,
-    ctx->images[image_index],
-    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    ctx->swapchain_images[image_index],
-    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    1,
-    &copy
+  vkCmdBlitImage(
+    cmd, 
+    ctx->images[image_index], 
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+    ctx->swapchain_images[image_index], 
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+    1, 
+    &blit, VK_FILTER_LINEAR
   );
+
 
   VkImageMemoryBarrier post_barrier = pre_barrier;
   {

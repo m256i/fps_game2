@@ -4,3 +4,6 @@
 /compiled
 /game_logs.txt
 /output.txt
+*.exe
+*.lib
+*.dll
