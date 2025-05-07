@@ -83,7 +83,7 @@ static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkS
       free(present_modes);
       return VK_PRESENT_MODE_IMMEDIATE_KHR;
     }
-  }
+  } // VK_PRESENT_MODE_IMMEDIATE_KHR
   GAME_LOGF("immediate rendering mode not available");
   exit(1);
 }
@@ -325,7 +325,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
   VkSurfaceFullScreenExclusiveInfoEXT fsInfo = {
       .sType               = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT,
-      .pNext               = &win32Info,                                  // will point to win32Info
+      .pNext               = &win32Info,
       .fullScreenExclusive = VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT
   };
 
@@ -469,7 +469,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
 u0 bind_vulkan_surface(vk_context *ctx) {
   vk_sc_ringbuf *rb = &ctx->swapchain;
-  rb->current_index = (rb->current_index + 1) % rb->count_fbos;
+  //rb->current_index = (rb->current_index + 1) % rb->count_fbos;
   shared_fbo *sf = &rb->shared_fbos[rb->current_index];
 
   glWaitSemaphoreEXT(
@@ -522,6 +522,7 @@ u0 vulkan_present(vk_context *ctx) {
   );
 
   rb->current_index = image_index;
+
 
   vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index], VK_TRUE, UINT64_MAX);
   vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index]);
