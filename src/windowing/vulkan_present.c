@@ -113,17 +113,20 @@ static VkSurfaceFormatKHR get_viable_surface_format(VkPhysicalDevice *_phys_dev,
 
   for (u32 i = 0; i != format_count; i++) {
     if (formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
+      const VkSurfaceFormatKHR f= formats[i];
       free(formats);
-      return formats[i];
+      return f;
     }
     if (formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && formats[i].format == VK_FORMAT_R8G8B8A8_SRGB) {
+      const VkSurfaceFormatKHR f= formats[i];
       free(formats);
-      return formats[i];
+      return f;
     }
   }
   /* safe default */
   free(formats);
   GAME_LOGF("using fallback surface format mode!");
+  exit(1);
   return formats[0];
 }
 
