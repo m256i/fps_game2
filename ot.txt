@@ -1,0 +1,11 @@
+ninja: Entering directory `F:\fps_game2\build'
+ninja: no work to do.
+ninja: Entering directory `F:\fps_game2\build'
+ninja: no work to do.
+Installing a.exe to F:\fps_game2\build\..\compiled
+fps: 1
+fps: 27624
+fps: 28901
+fps: 21978
+fps: 29498
+done

@@ -18,7 +18,8 @@ c_compiler_args = [
   '-O3',
   '-march=native',
   '-mtune=native',
-  '-fomit-frame-pointer'
+  '-fomit-frame-pointer',
+  '-ffast-math'
 ]
 
 # Normalize paths
@@ -51,7 +52,6 @@ endif
 
 # Use a custom Python globber to list all source files.
 source_files = run_command('python', localappdata_path + '\\amca\\snakes\\globber.py', './', '*.c', check : true).stdout().strip().split('\n')
-
 vulkan_lib = run_command('cmd', '/c', 'echo %VULKAN_SDK%\\Lib').stdout().strip().replace('\\', '/')
 
 # Include directories
@@ -68,7 +68,7 @@ executable(output_name,
   dependencies : dependencies,
   include_directories : headers,
   c_args : c_compiler_args,
-  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lopengl32'],
+  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lopengl32', '-lddraw', '-ldxguid', '-ldxgi'],
   install : true,
   install_dir : output_dir)
 

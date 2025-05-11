@@ -9,12 +9,17 @@
 #include <wgl/glad_wgl.h>
 
 #include <math.h>
+#include <ddraw.h>
+
+#include <math/vector.h>
+
+#include <windowing/frame_pacer.h>
 
 const char *vertex_shader_src = "#version 460 core\n"
                                 "layout(location = 0) in vec2 aPos;\n"
-                                "uniform float xOffset;\n"
+                                "uniform float OffsetX;"
                                 "void main() {\n"
-                                "    gl_Position = vec4(aPos.x + xOffset, aPos.y, 0.0, 1.0);\n"
+                                "    gl_Position = vec4(aPos.x + OffsetX, aPos.y, 0.0, 1.0);\n"
                                 "}\n";
 
 const char *fragment_shader_src = "#version 460 core\n"
@@ -31,6 +36,11 @@ int main() {
   }
   log_add_fp(lf, LOG_TRACE);
   GAME_LOGF("initialising game client version %s", GAME_CLIENT_VER_STR);
+
+  // unit_test_mathlib();
+
+  SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
   RGFW_window *tmp_window = RGFW_createWindow("opengl_context_window", RGFW_RECT(0, 0, 1, 1), RGFW_windowHide);
   RGFW_window_makeCurrent_OpenGL(tmp_window);
@@ -49,6 +59,9 @@ int main() {
 
   vk_context vk_ctx;
   initialize_vulkan_context(&vk_ctx, pwin->internal_window->src.window, pwin->screen_width, pwin->screen_height);
+
+  frame_pacer_context *fpc = malloc(sizeof(frame_pacer_context));
+  initialize_frame_pacer(fpc, pwin->internal_window->src.window);
 
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
 
@@ -75,15 +88,21 @@ int main() {
   glDeleteShader(vs);
   glDeleteShader(fs);
 
-  GLint offset_loc = glGetUniformLocation(program, "xOffset");
-
+  GLint offset_loc = glGetUniformLocation(program, "OffsetX");
   f64 old_time = 0;
 
+  u64 rendered_frames = 0;
+
+  sync_cycle_start(fpc);
   while (!window_should_close(pwin)) {
+    update_target_frame(fpc);
+    // resync_cycle_start(fpc);
+
     f64 ct = RGFW_getTimeNS() * 1e-9;
     f64 dt = ct - old_time;
     old_time = ct;
-    // printf("fps: %lf\n", 1.0 / dt);
+
+    if (rendered_frames % 5000 == 0) { printf("fps: %llu\n", (usize)(1.0 / dt)); }
 
     window_check_events(pwin);
     bind_vulkan_surface(&vk_ctx);
@@ -98,15 +117,30 @@ int main() {
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
-    static double accumulator = 0.0;
-    accumulator += dt;
+    rendered_frames++;
 
-    vulkan_present(&vk_ctx);
+    // const u64 cycle_delta_ns = (RGFW_getTimeNS() - start_time) % average_refresh_time;
+
+    // GAME_LOGF("average refresh time: %llu", average_refresh_time);
+    // GAME_LOGF("cycle delta: %llu", cycle_delta_ns);
+    // GAME_LOGF("(f64)cycle_delta_ns / (f64)average_refresh_time: %llu", (f64)cycle_delta_ns /
+    // (f64)average_refresh_time);
+
+    if (monitor_pace(fpc, 1080, 144)) {
+      // const u64 pre = RGFW_getTimeNS();
+      //      update_optimal_scanline(fpc, 1080, 144, RGFW_getTimeNS() - pre);
+      vulkan_present(&vk_ctx);
+    }
   }
 
   glDeleteProgram(program);
   glDeleteBuffers(1, &vbo);
   glDeleteVertexArrays(1, &vao);
+
+  destroy_frame_pacer(fpc);
+  destroy_vulkan_context(&vk_ctx);
+
+  puts("done");
 
   destroy_window(pwin);
   return 0;

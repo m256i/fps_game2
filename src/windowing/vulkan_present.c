@@ -469,7 +469,9 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
 u0 bind_vulkan_surface(vk_context *ctx) {
   vk_sc_ringbuf *rb = &ctx->swapchain;
-  //rb->current_index = (rb->current_index + 1) % rb->count_fbos;
+  rb->current_index = (rb->current_index + 1) % rb->count_fbos;
+  //printf("opengl will present into frame %zu\n",  rb->current_index);
+  
   shared_fbo *sf = &rb->shared_fbos[rb->current_index];
 
   glWaitSemaphoreEXT(
@@ -521,13 +523,14 @@ u0 vulkan_present(vk_context *ctx) {
     &image_index
   );
 
-  rb->current_index = image_index;
+ // printf("vkAcquireNextImageKHR gave %u\n",  image_index);
 
+  //rb->current_index = image_index;
 
   vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index], VK_TRUE, UINT64_MAX);
   vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index]);
 
-  VkCommandBuffer cmd = ctx->cmd_buffers[image_index];
+  const VkCommandBuffer cmd = ctx->cmd_buffers[image_index];
   vkResetCommandBuffer(cmd, 0);
   VkCommandBufferBeginInfo bi = {
       VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, 
@@ -590,7 +593,6 @@ u0 vulkan_present(vk_context *ctx) {
     &blit, VK_FILTER_LINEAR
   );
 
-
   VkImageMemoryBarrier post_barrier = pre_barrier;
   {
     post_barrier.image = ctx->swapchain_images[image_index];
@@ -610,8 +612,8 @@ u0 vulkan_present(vk_context *ctx) {
 
   vkEndCommandBuffer(cmd);
 
-  VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
-  VkSubmitInfo submit = {
+  const VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+  const VkSubmitInfo submit = {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
       .waitSemaphoreCount = 1,
       .pWaitSemaphores = &rb->vk_wait_semaphores[image_index],
@@ -623,7 +625,7 @@ u0 vulkan_present(vk_context *ctx) {
   };
   vkQueueSubmit(ctx->vk_queue, 1, &submit, ctx->inflight_fences[image_index]);
 
-  VkPresentInfoKHR presentInfo = {
+  const VkPresentInfoKHR presentInfo = {
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
       .waitSemaphoreCount = 1,
       .pWaitSemaphores = &rb->vk_signal_semaphores[image_index],
@@ -636,7 +638,92 @@ u0 vulkan_present(vk_context *ctx) {
 
 u0 destroy_vulkan_context(vk_context *_context)
 {
-  // TODO: implement
+  if (!_context) return;
+
+  VkDevice device = _context->vk_device;
+
+  // 1. Destroy OpenGL-wrapped Vulkan objects
+  vk_sc_ringbuf *rb = &_context->swapchain;
+  if (rb->shared_fbos) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      shared_fbo *fbo = &rb->shared_fbos[i];
+      if (fbo->fbo_handle) glDeleteFramebuffers(1, &fbo->fbo_handle);
+      if (fbo->texture_handle) glDeleteTextures(1, &fbo->texture_handle);
+      if (fbo->memory_object) glDeleteMemoryObjectsEXT(1, &fbo->memory_object);
+    }
+    free(rb->shared_fbos);
+  }
+
+  if (rb->gl_wait_semaphores) {
+    glDeleteSemaphoresEXT((GLsizei)rb->count_fbos, rb->gl_wait_semaphores);
+    free(rb->gl_wait_semaphores);
+  }
+
+  if (rb->gl_signal_semaphores) {
+    glDeleteSemaphoresEXT((GLsizei)rb->count_fbos, rb->gl_signal_semaphores);
+    free(rb->gl_signal_semaphores);
+  }
+
+  if (rb->vk_wait_semaphores) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      if (rb->vk_wait_semaphores[i])
+        vkDestroySemaphore(device, rb->vk_wait_semaphores[i], NULL);
+    }
+    free(rb->vk_wait_semaphores);
+  }
+
+  if (rb->vk_signal_semaphores) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      if (rb->vk_signal_semaphores[i])
+        vkDestroySemaphore(device, rb->vk_signal_semaphores[i], NULL);
+    }
+    free(rb->vk_signal_semaphores);
+  }
+
+  // 2. Destroy Vulkan objects
+  if (_context->cmd_buffers) {
+    vkFreeCommandBuffers(device, _context->cmd_pool, (uint32_t)rb->count_fbos, _context->cmd_buffers);
+    free(_context->cmd_buffers);
+  }
+
+  if (_context->cmd_pool) {
+    vkDestroyCommandPool(device, _context->cmd_pool, NULL);
+  }
+
+  if (_context->inflight_fences) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      if (_context->inflight_fences[i])
+        vkDestroyFence(device, _context->inflight_fences[i], NULL);
+    }
+    free(_context->inflight_fences);
+  }
+
+  if (_context->images) {
+    free(_context->images); // These are not created or destroyed manually, just array of handles
+  }
+
+  if (_context->swapchain_images) {
+    free(_context->swapchain_images);
+  }
+
+  if (_context->vk_swapchain) {
+    vkDestroySwapchainKHR(device, _context->vk_swapchain, NULL);
+  }
+
+  if (_context->vk_surface) {
+    vkDestroySurfaceKHR(_context->vk_instance, _context->vk_surface, NULL);
+  }
+
+  if (device) {
+    vkDeviceWaitIdle(device);
+    vkDestroyDevice(device, NULL);
+  }
+
+  if (_context->vk_instance) {
+    vkDestroyInstance(_context->vk_instance, NULL);
+  }
+
+  memset(_context, 0, sizeof(*_context));
 }
 
 // clang-format on
