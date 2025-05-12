@@ -473,20 +473,18 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 usize bind_vulkan_surface(vk_context *ctx) {
   vk_sc_ringbuf *rb = &ctx->swapchain;
   rb->current_index = (rb->current_index + 1) % rb->count_fbos;
-  // printf("opengl will present into frame %zu\n",  rb->current_index);
-  
   shared_fbo *sf = &rb->shared_fbos[rb->current_index];
-
+  
   glWaitSemaphoreEXT(
     rb->gl_signal_semaphores[rb->current_index], 
     0, NULL, 1, 
     (GLuint[]){sf->texture_handle}, 
     (GLenum[]){GL_TEXTURE_2D}
   );
-
+  
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, sf->fbo_handle);
   glViewport(0, 0, ctx->texture_width, ctx->texture_height);
-
+  
   return rb->current_index;
 }
 
@@ -517,6 +515,7 @@ static u0 vulkan_wait_for_opengl(vk_context *ctx) {
 u0 vulkan_present(vk_context *ctx) {
   vulkan_wait_for_opengl(ctx);
   vk_sc_ringbuf *rb = &ctx->swapchain;
+  usize source_index =rb->current_index;
   u32 image_index;
 
   vkAcquireNextImageKHR(
@@ -527,10 +526,6 @@ u0 vulkan_present(vk_context *ctx) {
     VK_NULL_HANDLE, 
     &image_index
   );
-
-  // printf("vkAcquireNextImageKHR gave %u\n",  image_index);
-
-  //rb->current_index = image_index;
 
   vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index], VK_TRUE, UINT64_MAX);
   vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index]);
@@ -566,7 +561,7 @@ u0 vulkan_present(vk_context *ctx) {
 
   VkImageMemoryBarrier mid_barrier = pre_barrier;
   {
-    mid_barrier.image = ctx->images[image_index];
+    mid_barrier.image = ctx->images[source_index];
     mid_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
     mid_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
     mid_barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -590,7 +585,7 @@ u0 vulkan_present(vk_context *ctx) {
 
   vkCmdBlitImage(
     cmd, 
-    ctx->images[image_index], 
+    ctx->images[source_index], 
     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
     ctx->swapchain_images[image_index], 
     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 

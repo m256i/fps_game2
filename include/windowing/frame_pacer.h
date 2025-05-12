@@ -51,7 +51,7 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx);
 /*
 tests if the monitor can be updated
 */
-bool monitor_pace(frame_pacer_context *const _ctx, u32 _hres, u32 _refresh_rate);
+bool monitor_pace(frame_pacer_context *const _ctx, u32 _refresh_rate);
 /*
   [_hres]:                  horizontal resolution of monitor
   [_refresh_rate]:          refresh rate of the monitor in hz
@@ -61,7 +61,7 @@ u0 update_optimal_scanline(frame_pacer_context *const _ctx, u32 _hres, u32 _refr
 u0 resync_cycle_start(frame_pacer_context *const _ctx);
 u0 sync_cycle_start(frame_pacer_context *const _ctx);
 
-u0 update_target_frame(frame_pacer_context *const _ctx);
+u0 update_target_frame(frame_pacer_context *const _ctx, u32 _refresh_rate);
 
 inline u0 wait_for_vblank(frame_pacer_context *const _ctx) { _ctx->output->lpVtbl->WaitForVBlank(_ctx->output); }
 

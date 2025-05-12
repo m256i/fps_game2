@@ -91,6 +91,8 @@ int main() {
   GLint offset_loc = glGetUniformLocation(program, "OffsetX");
   f64 old_time = 0;
 
+  u32 refresh_rate = RGFW_getPrimaryMonitor().mode.refreshRate;
+
   u64 rendered_frames = 0;
   usize k = 0;
   sync_cycle_start(fpc);
@@ -107,6 +109,8 @@ int main() {
     float time = (float)RGFW_getTimeNS() * 0.000000005;
     float offset = sinf(time) * 0.5f;
 
+    // Sleep(10);
+
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(program);
@@ -116,8 +120,8 @@ int main() {
 
     rendered_frames++;
 
-    update_target_frame(fpc);
-    if (monitor_pace(fpc, 1080, 144)) {
+    update_target_frame(fpc, refresh_rate);
+    if (monitor_pace(fpc, refresh_rate)) {
       const u64 pre_time = RGFW_getTimeNS();
       vulkan_present(&vk_ctx);
       fpc->last_render_duration = RGFW_getTimeNS() - pre_time;
