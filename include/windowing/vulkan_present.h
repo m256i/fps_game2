@@ -57,8 +57,9 @@ initialize a vulkan surface and context after creating/resizing viewport
 u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h);
 /*
 bind the vulkan surface as a framebuffer object in OpenGL
+returns the buffer index of which buffer opengl will draw to
 */
-u0 bind_vulkan_surface(vk_context *ctx);
+usize bind_vulkan_surface(vk_context *ctx);
 /*
 present the vulkan surface to the window
 */

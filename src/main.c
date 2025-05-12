@@ -92,17 +92,14 @@ int main() {
   f64 old_time = 0;
 
   u64 rendered_frames = 0;
-
+  usize k = 0;
   sync_cycle_start(fpc);
-  while (!window_should_close(pwin)) {
-    update_target_frame(fpc);
-    // resync_cycle_start(fpc);
-
-    f64 ct = RGFW_getTimeNS() * 1e-9;
+  while (k < 1000 && !window_should_close(pwin)) {
+    f64 ct = RGFW_getTimeNS();
     f64 dt = ct - old_time;
     old_time = ct;
 
-    if (rendered_frames % 5000 == 0) { printf("fps: %llu\n", (usize)(1.0 / dt)); }
+    if (rendered_frames % 5000 == 0) { printf("fps: %llu\n", (usize)(1e9 / dt)); }
 
     window_check_events(pwin);
     bind_vulkan_surface(&vk_ctx);
@@ -119,17 +116,12 @@ int main() {
 
     rendered_frames++;
 
-    // const u64 cycle_delta_ns = (RGFW_getTimeNS() - start_time) % average_refresh_time;
-
-    // GAME_LOGF("average refresh time: %llu", average_refresh_time);
-    // GAME_LOGF("cycle delta: %llu", cycle_delta_ns);
-    // GAME_LOGF("(f64)cycle_delta_ns / (f64)average_refresh_time: %llu", (f64)cycle_delta_ns /
-    // (f64)average_refresh_time);
-
+    update_target_frame(fpc);
     if (monitor_pace(fpc, 1080, 144)) {
-      // const u64 pre = RGFW_getTimeNS();
-      //      update_optimal_scanline(fpc, 1080, 144, RGFW_getTimeNS() - pre);
+      const u64 pre_time = RGFW_getTimeNS();
       vulkan_present(&vk_ctx);
+      fpc->last_render_duration = RGFW_getTimeNS() - pre_time;
+      //
     }
   }
 

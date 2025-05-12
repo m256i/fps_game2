@@ -5,6 +5,7 @@
 #include <common.h>
 #include <stdatomic.h>
 #include <dxgi.h>
+#include <containers/p_linked_list.h>
 
 typedef struct {
   /* keep these on seperate cache lines:
@@ -16,8 +17,8 @@ typedef struct {
     the last time the monitor vblanked
     */
     _Atomic u64 last_vblank_time;
-    _Atomic u64 last_monitor_cycle;  /* how many cycles the last monitor update took */
-    _Atomic u64 monitor_frame_count; /* how many frames the monitor has presented */
+    _Atomic u64 last_monitor_cycle_time; /* how many cycles the last monitor update took */
+    _Atomic u64 monitor_frame_count;     /* how many frames the monitor has presented */
   };
   u8 alignment_buffer[64];
   /* worker will only read from this */
@@ -28,12 +29,19 @@ typedef struct {
     */
     _Atomic bool stop_flag;
 
-    u64 target_scanline;
-    u64 present_monitor_frame_count_target;
-    u64 cycle_start_time;
-    u64 frame_ready_at_monitor_count;
-    u64 last_present_time;
-    u64 last_present_framecount;
+    u64 last_render_start_time;
+    u64 last_render_duration;
+    u64 last_present_start_time;
+    u64 last_present_duration;
+
+    u64 target_present_time;
+
+    u64 wait_until_present_frame;
+    u64 last_present_render_time;
+
+    bool presented_frame;
+    bool updated_target;
+
     HANDLE pacer_thread_handle;
   };
 } frame_pacer_context;

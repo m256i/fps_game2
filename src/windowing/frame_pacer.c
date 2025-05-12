@@ -1,4 +1,4 @@
-#include <windowing/frame_pacer.h>>
+#include <windowing/frame_pacer.h>
 #include <windows.h>
 #include <common.h>
 #include <math.h>
@@ -10,6 +10,8 @@ DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
   frame_pacer_context *ctx = (frame_pacer_context *)_params;
   u64 last_vblank_time = 0;
   u64 monitor_fc = 0;
+
+  atomic_store_explicit(&ctx->last_monitor_cycle_time, (u64)(6.92 * 1e6), memory_order_release);
   while (atomic_load_explicit(&ctx->stop_flag, memory_order_relaxed) != true) {
     wait_for_vblank(ctx);
     const u64 time = RGFW_getTimeNS();
@@ -24,15 +26,21 @@ DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
 u0 initialize_frame_pacer(frame_pacer_context *const _ctx, HWND _hwnd) {
   _ctx->adapter = NULL;
   _ctx->output = NULL;
-  _ctx->target_scanline = 0;
-  _ctx->cycle_start_time = 0;
-  _ctx->present_monitor_frame_count_target = 0;
-  _ctx->frame_ready_at_monitor_count = 0;
-  _ctx->last_present_time = 0;
-  _ctx->last_present_framecount = 0;
+
+  _ctx->last_render_start_time = 0;
+  _ctx->last_render_duration = 0;
+  _ctx->last_present_start_time = 0;
+  _ctx->last_present_duration = 0;
+
+  _ctx->target_present_time = 0;
+  _ctx->wait_until_present_frame = 0;
+  _ctx->last_present_render_time = 0;
+
+  _ctx->presented_frame = false;
+  _ctx->updated_target = false;
 
   atomic_store(&_ctx->last_vblank_time, 0ull);
-  atomic_store(&_ctx->last_monitor_cycle, 0ull);
+  atomic_store(&_ctx->last_monitor_cycle_time, 0ull);
   atomic_store(&_ctx->monitor_frame_count, 0ull);
   atomic_store(&_ctx->stop_flag, false);
 
@@ -94,22 +102,6 @@ u0 update_optimal_scanline(frame_pacer_context *const _ctx, u32 _hres, u32 _refr
   // printf("target_scanline = %u (margin_ns = %.0f ns, line_time = %.3f ns)\n", target, margin_ns, line_time_ns);
 }
 
-bool monitor_pace(frame_pacer_context *const _ctx, u32 _hres, u32 _refresh_rate) {
-  // const u64 monitor_last_vblank_time = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
-  const u64 fc = atomic_load_explicit(&_ctx->monitor_frame_count, memory_order_acquire);
-  // printf("monitor pace, framecount:  %llu\n", fc);
-  // printf("_ctx->present_monitor_frame_count_target:  %llu\n", _ctx->present_monitor_frame_count_target);
-  // printf("monitor last vblank time: %llu\n", monitor_last_vblank_time);
-  // printf("_ctx->last_present_time: %llu\n", _ctx->last_present_time);
-  // printf("_ctx->present_monitor_frame_count_target - fc delta: %llu\n",
-  // (_ctx->present_monitor_frame_count_target - fc));
-  if (fc >= _ctx->present_monitor_frame_count_target) {
-    _ctx->last_present_framecount = fc;
-    return true;
-  }
-  return false;
-}
-
 u0 resync_cycle_start(frame_pacer_context *const _ctx) {
   //_ctx->cycle_start_time = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
 }
@@ -119,17 +111,71 @@ u0 sync_cycle_start(frame_pacer_context *const _ctx) {
   // _ctx->cycle_start_time = RGFW_getTimeNS();
 }
 
-u0 update_target_frame(frame_pacer_context *const _ctx) {
-  // puts("update target frame");
-  /* if we havent rendered yet at all we just set current monitor frame */
-  if (_ctx->present_monitor_frame_count_target == 0 || _ctx->last_present_framecount == 0) {
-    const u64 fc = atomic_load_explicit(&_ctx->monitor_frame_count, memory_order_acquire);
-    // printf("initial target update: fc %llu\n", fc);
-    _ctx->present_monitor_frame_count_target = fc;
-  } else if (_ctx->last_present_framecount >= _ctx->present_monitor_frame_count_target) {
-    //  printf("last present == target frame\n");
-    /* else we increment */
-    _ctx->present_monitor_frame_count_target = _ctx->last_present_framecount + 1;
-    // printf("present_monitor_frame_count_target %llu\n", _ctx->present_monitor_frame_count_target);
+bool monitor_pace(frame_pacer_context *const _ctx, u32, u32) {
+
+  // printf("updated_target this frame: %d\n", _ctx->updated_target);
+  // printf("presented_frame this frame: %d\n", _ctx->presented_frame);
+
+  // const u64 screen_builtin_latency_ns = (u64)(6.9 * 1e6) / 2;
+
+  const u64 time = RGFW_getTimeNS();
+  printf("time of rendering: %lf\n", ((f64)time) / 1e6);
+
+  if (time >= _ctx->target_present_time && !_ctx->presented_frame) {
+    _ctx->presented_frame = true;
+    puts("presenting");
+    return true;
   }
+  return false;
+}
+
+u0 update_target_frame(frame_pacer_context *const _ctx) {
+  const u64 last_vblank_time = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
+  const u64 last_cycle_time = atomic_load_explicit(&_ctx->last_monitor_cycle_time, memory_order_acquire);
+
+  static u64 previous_blank_time = 0;
+
+  if (last_vblank_time > previous_blank_time) {
+    puts("---------------------------------");
+    puts("new frame from monitor!");
+    previous_blank_time = last_vblank_time;
+    _ctx->updated_target = false;
+    _ctx->presented_frame = false;
+  } else {
+    _ctx->updated_target = true;
+  }
+
+  if (_ctx->updated_target) {
+    // puts("still old frame");
+    return;
+  }
+
+  printf("last_vlank_time: %lf\n", ((f64)last_vblank_time) / 1e6);
+  printf("last_cycle_time: %lf\n", ((f64)last_cycle_time) / 1e6);
+  printf("    delta: %lf\n", (f64)((i64)last_vblank_time - (i64)_ctx->target_present_time) / 1e6);
+
+  const u64 render_latency = _ctx->last_render_duration;
+  /*
+  in order to know how much we actually failed at predicting we need to subtract
+  our preemptive extra time last_present_render_time from the delta
+  the higher this number is the earlier we tried to predict (incorrectly)
+  */
+  i64 corrected_delta = (i64)last_vblank_time - ((i64)_ctx->target_present_time + (i64)_ctx->last_present_render_time);
+
+  printf("corrected delta: %lf\n", ((f64)corrected_delta) / 1e6);
+
+  const u64 time = RGFW_getTimeNS();
+
+  /* is our fps too low to actually frame pace? */
+  if (time + render_latency >= last_vblank_time + last_cycle_time) {
+    /* just present immediatly */
+    const u64 next_optimal_present_time = RGFW_getTimeNS();
+    _ctx->target_present_time = next_optimal_present_time;
+  } else {
+    const u64 next_optimal_present_time = last_vblank_time + last_cycle_time - render_latency - 550000;
+    printf("next_optimal_present_time: %lf\n", ((f64)next_optimal_present_time) / 1e6);
+    _ctx->target_present_time = next_optimal_present_time;
+    _ctx->last_present_render_time = render_latency;
+  }
+  _ctx->updated_target = true;
 }

@@ -309,7 +309,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   GAME_LOGF("min image count: %d", surface_caps.minImageCount);
   GAME_LOGF("current transform: %d", surface_caps.currentTransform);
 
-  const u32 swapchain_length = min(max(3, surface_caps.minImageCount), surface_caps.maxImageCount);
+  const u32 swapchain_length = min(max(2, surface_caps.minImageCount), surface_caps.maxImageCount);
 
   GAME_LOGF("swapchain length: %d", swapchain_length);
 
@@ -470,10 +470,10 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   GAME_LOGF("successfully initialized vulkan surface");
 }
 
-u0 bind_vulkan_surface(vk_context *ctx) {
+usize bind_vulkan_surface(vk_context *ctx) {
   vk_sc_ringbuf *rb = &ctx->swapchain;
   rb->current_index = (rb->current_index + 1) % rb->count_fbos;
-  //printf("opengl will present into frame %zu\n",  rb->current_index);
+  // printf("opengl will present into frame %zu\n",  rb->current_index);
   
   shared_fbo *sf = &rb->shared_fbos[rb->current_index];
 
@@ -486,6 +486,8 @@ u0 bind_vulkan_surface(vk_context *ctx) {
 
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, sf->fbo_handle);
   glViewport(0, 0, ctx->texture_width, ctx->texture_height);
+
+  return rb->current_index;
 }
 
 static u0 vulkan_wait_for_opengl(vk_context *ctx) {
@@ -526,7 +528,7 @@ u0 vulkan_present(vk_context *ctx) {
     &image_index
   );
 
- // printf("vkAcquireNextImageKHR gave %u\n",  image_index);
+  // printf("vkAcquireNextImageKHR gave %u\n",  image_index);
 
   //rb->current_index = image_index;
 
