@@ -194,8 +194,8 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
 
   const u64 render_time_estimate = get_average_render_latency(&_ctx->render_timing_data);
   const u64 present_time_estimate = get_average_render_latency(&_ctx->present_timing_data);
-  const u64 driver_latency_margin = 250000; // 350us
-  const u64 timing_error_margin = 2000;     // 2us
+  const u64 driver_latency_margin = 250000; // 250us
+  const u64 timing_error_margin = 500;      // 0.5us
 
   GAME_LOGF("render_time_estimate: %llu", render_time_estimate);
   GAME_LOGF("present_time_estimate: %llu", present_time_estimate);
@@ -211,7 +211,7 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
     GAME_LOGF("next_optimal_present_time: %lli", next_optimal_present_time);
 
     /* margin too tight try to render + present until the next vsync */
-    if (next_optimal_present_time < (i64)time + (i64)timing_error_margin) {
+    if (next_optimal_present_time <= (i64)time + (i64)timing_error_margin) {
       GAME_WARNF("present margin too tight, trying next vsync");
       if (target_vblank_offset <= 4) {
         target_vblank_offset++;
@@ -225,7 +225,7 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
 
     GAME_LOGF("next_optimal_render_time: %lli", next_optimal_render_time);
 
-    if (next_optimal_render_time < (i64)time + (i64)timing_error_margin) {
+    if (next_optimal_render_time <= (i64)time + (i64)timing_error_margin) {
       GAME_WARNF("render margin too tight, trying next vsync");
       if (target_vblank_offset <= 4) {
         target_vblank_offset++;
