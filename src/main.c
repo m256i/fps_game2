@@ -18,8 +18,9 @@
 const char *vertex_shader_src = "#version 460 core\n"
                                 "layout(location = 0) in vec2 aPos;\n"
                                 "uniform float OffsetX;"
+                                "uniform float OffsetY;"
                                 "void main() {\n"
-                                "    gl_Position = vec4(aPos.x + OffsetX, aPos.y, 0.0, 1.0);\n"
+                                "    gl_Position = vec4(aPos.x + OffsetX, aPos.y + OffsetY, 0.0, 1.0);\n"
                                 "}\n";
 
 const char *fragment_shader_src = "#version 460 core\n"
@@ -40,7 +41,7 @@ int main() {
   // unit_test_mathlib();
 
   SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
   RGFW_window *tmp_window = RGFW_createWindow("opengl_context_window", RGFW_RECT(0, 0, 1, 1), RGFW_windowHide);
   RGFW_window_makeCurrent_OpenGL(tmp_window);
@@ -61,7 +62,7 @@ int main() {
   initialize_vulkan_context(&vk_ctx, pwin->internal_window->src.window, pwin->screen_width, pwin->screen_height);
 
   frame_pacer_context *fpc = malloc(sizeof(frame_pacer_context));
-  initialize_frame_pacer(fpc, pwin->internal_window->src.window);
+  initialize_frame_pacer(fpc);
 
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
 
@@ -88,44 +89,66 @@ int main() {
   glDeleteShader(vs);
   glDeleteShader(fs);
 
-  GLint offset_loc = glGetUniformLocation(program, "OffsetX");
-  f64 old_time = 0;
+  GLint offsetX_loc = glGetUniformLocation(program, "OffsetX");
+  GLint offsetY_loc = glGetUniformLocation(program, "OffsetY");
 
   u32 refresh_rate = RGFW_getPrimaryMonitor().mode.refreshRate;
 
   u64 rendered_frames = 0;
   usize k = 0;
   sync_cycle_start(fpc);
-  while (k < 1000 && !window_should_close(pwin)) {
-    f64 ct = RGFW_getTimeNS();
-    f64 dt = ct - old_time;
-    old_time = ct;
-
-    if (rendered_frames % 5000 == 0) { printf("fps: %llu\n", (usize)(1e9 / dt)); }
-
+  while (!window_should_close(pwin)) {
     window_check_events(pwin);
-    bind_vulkan_surface(&vk_ctx);
+    schedule_next_render_and_present(fpc, refresh_rate);
 
-    float time = (float)RGFW_getTimeNS() * 0.000000005;
-    float offset = sinf(time) * 0.5f;
+    if (should_render(fpc)) {
+      start_tracking_render_time(fpc);
+      {
+        f64 old_time = RGFW_getTimeNS();
+        bind_vulkan_surface(&vk_ctx);
 
-    // Sleep(10);
+        float time = (float)RGFW_getTimeNS() / 1e9 * 10;
+        float offset = sinf(time * 1) * 0.5f;
+        /* p100 fakelag */
+        // Sleep(6);
+        RGFW_point mousepos = RGFW_getGlobalMousePoint();
+        float mousepos_x = (f32)mousepos.x / RGFW_getScreenSize().w;
+        float mousepos_y = (f32)mousepos.y / RGFW_getScreenSize().h;
+        mousepos.y /= RGFW_getScreenSize().h;
 
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(program);
-    glUniform1f(offset_loc, offset);
-    glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+        //      printf("mouse pos: %f %f\n", mousepos_x, mousepos_y);
+
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(program);
+        glUniform1f(offsetX_loc, mousepos_x * 2.f - 1);
+        glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f);
+        // glUniform1f(offsetY_loc, offset);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        f64 ct = RGFW_getTimeNS();
+        f64 dt = ct - old_time;
+        old_time = ct;
+
+        if (rendered_frames % 144 == 0) {
+          SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+          SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+          printf("render fps: %llu\n", (usize)(1e9 / dt));
+        }
+      }
+      stop_tracking_render_time(fpc);
+    }
 
     rendered_frames++;
 
-    update_target_frame(fpc, refresh_rate);
-    if (monitor_pace(fpc, refresh_rate)) {
-      const u64 pre_time = RGFW_getTimeNS();
-      vulkan_present(&vk_ctx);
-      fpc->last_render_duration = RGFW_getTimeNS() - pre_time;
-      //
+    if (should_present(fpc)) {
+      start_tracking_present_time(fpc);
+      {
+        /* present */
+        vulkan_present(&vk_ctx);
+      }
+      stop_tracking_present_time(fpc);
     }
   }
 

@@ -5,7 +5,17 @@
 #include <common.h>
 #include <stdatomic.h>
 #include <dxgi.h>
-#include <containers/p_linked_list.h>
+#include <containers/spsc_u64.h>
+
+typedef struct {
+  f64 ewma_mean;    // estimated mean render time (ns)
+  f64 ewma_m2;      // second moment for variance estimation
+  bool initialized; // first-sample flag
+} render_timing_data;
+
+u0 init_render_timing_data(render_timing_data *data);
+u0 update_render_timing_data(render_timing_data *const _data, u64 _newtime_ns);
+u64 get_average_render_latency(render_timing_data *const _data);
 
 typedef struct {
   /* keep these on seperate cache lines:
@@ -19,8 +29,11 @@ typedef struct {
     _Atomic u64 last_vblank_time;
     _Atomic u64 last_monitor_cycle_time; /* how many cycles the last monitor update took */
     _Atomic u64 monitor_frame_count;     /* how many frames the monitor has presented */
+
+    spsc_u64_16_ring_t vblank_queue;
+    spsc_u64_16_ring_t present_queue;
+    spsc_u64_16_ring_t render_queue;
   };
-  u8 alignment_buffer[64];
   /* worker will only read from this */
   struct __attribute__((aligned(64))) {
     IDXGIAdapter1 *adapter;
@@ -29,9 +42,7 @@ typedef struct {
     */
     _Atomic bool stop_flag;
 
-    u64 last_render_start_time;
     u64 last_render_duration;
-    u64 last_present_start_time;
     u64 last_present_duration;
 
     u64 target_present_time;
@@ -42,27 +53,33 @@ typedef struct {
     bool presented_frame;
     bool updated_target;
 
+    render_timing_data render_timing_data;
+    render_timing_data present_timing_data;
+
     HANDLE pacer_thread_handle;
   };
 } frame_pacer_context;
 
-u0 initialize_frame_pacer(frame_pacer_context *const _ctx, HWND _hwnd);
+u0 initialize_frame_pacer(frame_pacer_context *const _ctx);
 u0 destroy_frame_pacer(frame_pacer_context *const _ctx);
 /*
 tests if the monitor can be updated
 */
-bool monitor_pace(frame_pacer_context *const _ctx, u32 _refresh_rate);
-/*
-  [_hres]:                  horizontal resolution of monitor
-  [_refresh_rate]:          refresh rate of the monitor in hz
-  [_last_present_latency]:  last time it took to call vkQueuePresent() in nanoseconcds
-*/
-u0 update_optimal_scanline(frame_pacer_context *const _ctx, u32 _hres, u32 _refresh_rate, u64 _last_present_latency);
-u0 resync_cycle_start(frame_pacer_context *const _ctx);
+bool should_present(frame_pacer_context *const _ctx);
+
 u0 sync_cycle_start(frame_pacer_context *const _ctx);
 
 u0 update_target_frame(frame_pacer_context *const _ctx, u32 _refresh_rate);
 
 inline u0 wait_for_vblank(frame_pacer_context *const _ctx) { _ctx->output->lpVtbl->WaitForVBlank(_ctx->output); }
+
+u0 start_tracking_render_time(frame_pacer_context *const _ctx);
+u0 stop_tracking_render_time(frame_pacer_context *const _ctx);
+
+u0 start_tracking_present_time(frame_pacer_context *const _ctx);
+u0 stop_tracking_present_time(frame_pacer_context *const _ctx);
+
+u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refresh_rate);
+bool should_render(frame_pacer_context *const _ctx);
 
 #endif // WINDOWING_FRAME_PACER_H_

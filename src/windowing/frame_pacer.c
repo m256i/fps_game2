@@ -4,32 +4,68 @@
 #include <math.h>
 #include <RGFW/RGFW.h>
 #include <dxgi.h>
+#include <math/interp.h>
+
+u0 init_render_timing_data(render_timing_data *data) {
+  data->ewma_mean = 0.0;
+  data->ewma_m2 = 0.0;
+  data->initialized = false;
+}
+
+const static f64 EWMA_ALPHA = 0.05;   /* smoothing factor for mean and variance */
+const static f64 CONFIDENCE_Z = 2.22; /* z-score for ~99% confidence */
+
+u0 update_render_timing_data(render_timing_data *const _data, u64 _newtime_ns) {
+  const f64 x = (f64)_newtime_ns;
+
+  if (!_data->initialized) {
+    _data->ewma_mean = x;
+    _data->ewma_m2 = 0.0;
+    _data->initialized = true;
+    return;
+  }
+
+  const f64 delta = x - _data->ewma_mean;
+  _data->ewma_mean = EWMA_ALPHA * x + (1.0 - EWMA_ALPHA) * _data->ewma_mean;
+  _data->ewma_m2 = (1.0 - EWMA_ALPHA) * (_data->ewma_m2 + EWMA_ALPHA * delta * delta);
+}
+
+u64 get_average_render_latency(render_timing_data *const _data) {
+  if (!_data->initialized) { return 0; }
+  const f64 sigma = sqrt(_data->ewma_m2);
+  const f64 margin = _data->ewma_mean + (CONFIDENCE_Z * sigma);
+  const u64 margin_ns = (uint64_t)ceil(margin);
+  return margin_ns;
+}
 
 DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
   GAME_LOGF("... and running!");
   frame_pacer_context *ctx = (frame_pacer_context *)_params;
-  u64 last_vblank_time = 0;
+  u64 last_vblank_time_ = 0;
   u64 monitor_fc = 0;
+  spsc_u64_16_init(&ctx->vblank_queue);
+  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
   atomic_store_explicit(&ctx->last_monitor_cycle_time, (u64)(6.92 * 1e6), memory_order_release);
   while (atomic_load_explicit(&ctx->stop_flag, memory_order_relaxed) != true) {
     wait_for_vblank(ctx);
-    const u64 time = RGFW_getTimeNS();
+    SetThreadPriorityBoost(GetCurrentThread(), FALSE);
+    const u64 time = RGFW_getTimeNS() - 50000;
     monitor_fc++;
     atomic_store_explicit(&ctx->last_vblank_time, time, memory_order_release);
     atomic_store_explicit(&ctx->monitor_frame_count, monitor_fc, memory_order_release);
-    last_vblank_time = time;
+    // printf("time delta between vsyncs (according to windows): %llu\n", time - last_vblank_time_);
+    last_vblank_time_ = time;
   }
+  spsc_u64_16_clear(&ctx->vblank_queue);
   return 0;
 }
 
-u0 initialize_frame_pacer(frame_pacer_context *const _ctx, HWND _hwnd) {
+u0 initialize_frame_pacer(frame_pacer_context *const _ctx) {
   _ctx->adapter = NULL;
   _ctx->output = NULL;
 
-  _ctx->last_render_start_time = 0;
   _ctx->last_render_duration = 0;
-  _ctx->last_present_start_time = 0;
   _ctx->last_present_duration = 0;
 
   _ctx->target_present_time = 0;
@@ -38,6 +74,12 @@ u0 initialize_frame_pacer(frame_pacer_context *const _ctx, HWND _hwnd) {
 
   _ctx->presented_frame = false;
   _ctx->updated_target = false;
+
+  init_render_timing_data(&_ctx->render_timing_data);
+  init_render_timing_data(&_ctx->present_timing_data);
+
+  spsc_u64_16_init(&_ctx->present_queue);
+  spsc_u64_16_init(&_ctx->render_queue);
 
   atomic_store(&_ctx->last_vblank_time, 0ull);
   atomic_store(&_ctx->last_monitor_cycle_time, 0ull);
@@ -92,79 +134,228 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
   GAME_LOGF("destroyed frame pacer");
 }
 
+u0 start_tracking_render_time(frame_pacer_context *const _ctx) {
+  /* make sure that these are called properly */
+  _ctx->last_render_duration = RGFW_getTimeNS();
+}
+u0 stop_tracking_render_time(frame_pacer_context *const _ctx) {
+  _ctx->last_render_duration = RGFW_getTimeNS() - _ctx->last_render_duration;
+  // GAME_LOGF("last render duration: %llu", _ctx->last_render_duration);
+  update_render_timing_data(&_ctx->render_timing_data, _ctx->last_render_duration);
+}
+
+u0 start_tracking_present_time(frame_pacer_context *const _ctx) {
+  /* make sure that these are called properly */
+  _ctx->last_present_duration = RGFW_getTimeNS();
+}
+
+u0 stop_tracking_present_time(frame_pacer_context *const _ctx) {
+  _ctx->last_present_duration = RGFW_getTimeNS() - _ctx->last_present_duration;
+  // GAME_LOGF("last present duration: %llu", _ctx->last_present_duration);
+  update_render_timing_data(&_ctx->present_timing_data, _ctx->last_present_duration);
+}
+
 /*
-  [_hres]:                  horizontal resolution of monitor
-  [_refresh_rate]:          refresh rate of the monitor in hz
-  [_last_present_latency]:  last time it took to call vkQueuePresent() in nanoseconcds
+schedules the next render and returns in how many vblanks we can present
 */
-u0 update_optimal_scanline(frame_pacer_context *const _ctx, u32 _hres, u32 _refresh_rate, u64 _last_present_latency) {
-  //(optional debug)
-  // printf("target_scanline = %u (margin_ns = %.0f ns, line_time = %.3f ns)\n", target, margin_ns, line_time_ns);
-}
-
-u0 resync_cycle_start(frame_pacer_context *const _ctx) {
-  //_ctx->cycle_start_time = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
-}
-
-u0 sync_cycle_start(frame_pacer_context *const _ctx) {
-  wait_for_vblank(_ctx);
-  // _ctx->cycle_start_time = RGFW_getTimeNS();
-}
-
-bool monitor_pace(frame_pacer_context *const _ctx, u32 _refresh_rate) {
+u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refresh_rate) {
   const u64 screen_cycle_time_ns = (u64)((1000.0 / (f64)_refresh_rate) * 1e6);
   const u64 time = RGFW_getTimeNS();
 
-  if (time >= _ctx->target_present_time && !_ctx->presented_frame) {
-    _ctx->presented_frame = true;
-    return true;
+  static u64 previous_vblank = 0;
+  u64 last_vblank = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
+
+  /*
+  TODO: make based on measurements
+  */
+  const u64 vsync_update_error_margin_ns = screen_cycle_time_ns / 4;
+
+  /* do we not have a new vblank? */
+  if (last_vblank == previous_vblank && previous_vblank != 0) {
+    /* did windows forget to wake up our WaitForVSyncThread? */
+    if (time >= last_vblank + screen_cycle_time_ns + vsync_update_error_margin_ns) {
+      GAME_WARNF("gsync delayed vblank skipping");
+    } else {
+      return;
+    }
+  } else {
+    GAME_LOGF("---------- NEW VBLANK ----------");
+    GAME_LOGF("new: %llu old: %llu", last_vblank, previous_vblank);
+    previous_vblank = last_vblank;
   }
-  return false;
+
+  GAME_LOGF("time: %llu", time);
+
+  const u64 render_time_estimate = get_average_render_latency(&_ctx->render_timing_data);
+  const u64 present_time_estimate = get_average_render_latency(&_ctx->present_timing_data);
+  const u64 driver_latency_margin = 250000; // 450us
+  const u64 timing_error_margin = 1000;     // 1us
+
+  GAME_LOGF("render_time_estimate: %llu", render_time_estimate);
+  GAME_LOGF("present_time_estimate: %llu", present_time_estimate);
+
+  usize target_vblank_offset = 1;
+  const u64 next_vblank = last_vblank + (screen_cycle_time_ns * target_vblank_offset);
+
+  while (true) {
+    /* TODO: if the framerate is hovering at a state where it continuously switches between
+    present every nth vsync and present every nth/2 vsync try to stay at the lower rate
+    for some time to prevent stuttering
+    */
+    const i64 next_optimal_present_time = (i64)next_vblank - present_time_estimate - driver_latency_margin;
+    GAME_LOGF("next_optimal_present_time: %lli", next_optimal_present_time);
+
+    /* margin too tight try to render + present until the next vsync */
+    if ((i64)next_vblank - next_optimal_present_time < (i64)timing_error_margin) {
+      GAME_LOGF("margin too tight, trying next vsync");
+      if (target_vblank_offset <= 4) {
+        target_vblank_offset++;
+        continue;
+      }
+      GAME_LOGF("margin too tight, but skipping too many vsyncs, just doing something...");
+    }
+
+    const i64 next_optimal_render_time =
+        (i64)next_optimal_present_time - render_time_estimate - driver_latency_margin - timing_error_margin;
+
+    GAME_LOGF("next_optimal_render_time: %lli", next_optimal_render_time);
+
+    if ((i64)next_vblank - next_optimal_render_time < (i64)timing_error_margin) {
+      GAME_LOGF("margin too tight, trying next vsync");
+      if (target_vblank_offset <= 4) {
+        target_vblank_offset++;
+        continue;
+      }
+      GAME_LOGF("margin too tight, but skipping too many vsyncs, just doing something...");
+    }
+
+    spsc_u64_16_enqueue(&_ctx->render_queue, (u64)next_optimal_render_time);
+    spsc_u64_16_enqueue(&_ctx->present_queue, (u64)next_optimal_present_time);
+    break;
+  }
+}
+
+u0 sync_cycle_start(frame_pacer_context *const _ctx) { wait_for_vblank(_ctx); }
+
+bool should_present(frame_pacer_context *const _ctx) {
+  const u64 time = RGFW_getTimeNS();
+  bool found = false;
+  u64 target = 0;
+  while (spsc_u64_16_peek(&_ctx->present_queue, &target)) {
+    if (time >= target) {
+      GAME_LOGF("presented at time: %llu (delta: %llu)", time, time - target);
+      spsc_u64_16_dequeue(&_ctx->present_queue, &target);
+      found = true;
+    } else {
+      break;
+    }
+  }
+  return found;
+}
+
+bool should_render(frame_pacer_context *const _ctx) {
+  const u64 time = RGFW_getTimeNS();
+  bool found = false;
+  u64 target = 0;
+  while (spsc_u64_16_peek(&_ctx->render_queue, &target)) {
+    if (time >= target) {
+      GAME_LOGF("rendered at time: %llu (delta: %llu)", time, time - target);
+      spsc_u64_16_dequeue(&_ctx->render_queue, &target);
+      found = true;
+    } else {
+      break;
+    }
+  }
+  return found;
 }
 
 u0 update_target_frame(frame_pacer_context *const _ctx, u32 _refresh_rate) {
-  const u64 last_vblank_time = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
-  const u64 last_cycle_time = (u64)((1000.0 / (f64)_refresh_rate) * 1e6);
+  // const u64 last_vblank_time = atomic_load_explicit(&_ctx->last_vblank_time, memory_order_acquire);
+  // const u64 last_cycle_time = (u64)((1000.0 / (f64)_refresh_rate) * 1e6);
 
-  static u64 previous_blank_time = 0;
+  // static u64 previous_blank_time = 0;
 
-  if (last_vblank_time > previous_blank_time) {
-    // puts("---------------------------------");
-    // puts("new frame from monitor!");
-    previous_blank_time = last_vblank_time;
-    _ctx->updated_target = false;
-    _ctx->presented_frame = false;
-  } else {
-    _ctx->updated_target = true;
-  }
-  if (_ctx->updated_target) { return; }
+  // /*
+  // we should target 2 different states
+  // FPS > refresh rate: manage render time budgets so that we always have the absolute perfect timing for
+  //       the next present
+  // FPS <= reresh rate keep timings smooth and latencies not absolutely terrible
+  // */
+  // usize vblank_buff_size = spsc_u64_16_size(&_ctx->vblank_queue);
+  // if (vblank_buff_size) {
+  //   GAME_LOGF("vblank buffer size: %zu", vblank_buff_size);
+  //   u64 v;
+  //   while (spsc_u64_16_dequeue(&_ctx->vblank_queue, &v)) {
+  //     GAME_LOGF("tracked vblank: %llu", v);
+  //   }
+  // }
+
+  // if (last_vblank_time > previous_blank_time) {
+  //   puts("---------------------------------");
+  //   // puts("new frame from monitor!");
+  //   previous_blank_time = last_vblank_time;
+  //   _ctx->updated_target = false;
+  //   _ctx->presented_frame = false;
+  // } else {
+  //   _ctx->updated_target = true;
+  // }
+  // if (_ctx->updated_target) { return; }
 
   // printf("last_vlank_time: %lf\n", ((f64)last_vblank_time) / 1e6);
   // printf("last_cycle_time: %lf\n", ((f64)last_cycle_time) / 1e6);
   // printf("    delta: %lf\n", (f64)((i64)last_vblank_time - (i64)_ctx->target_present_time) / 1e6);
 
-  const u64 render_latency = _ctx->last_render_duration;
-  /*
-  in order to know how much we actually failed at predicting we need to subtract
-  our preemptive extra time last_present_render_time from the delta
-  the higher this number is the earlier we tried to predict (incorrectly)
-  */
-  i64 corrected_delta = (i64)last_vblank_time - ((i64)_ctx->target_present_time + (i64)_ctx->last_present_render_time);
+  // const u64 driver_latency_margin = 550000; // 550us
+  // const u64 present_latency = _ctx->last_render_duration;
+  // /*
+  // in order to know how much we actually failed at predicting we need to subtract
+  // our preemptive extra time last_present_render_time from the delta
+  // the higher this number is the earlier we tried to predict (incorrectly)
+  // */
+  // i64 corrected_delta = (i64)last_vblank_time - ((i64)_ctx->target_present_time + (i64)_ctx->last_present_render_time
+  // +
+  //                                                (i64)driver_latency_margin);
+  // static u64 maximum_forward_push = 0;
+
+  // /* where we off by more than half of an entire frame? */
+  // if (llabs(corrected_delta) <= (i64)(last_cycle_time / 2)) {
+  //   /* if a latency spike ocurred add a negative delay so prevent frame misses */
+  //   if (corrected_delta < 0) {
+  //     maximum_forward_push = max((u64)(-corrected_delta), maximum_forward_push);
+  //     GAME_LOGF("latency spike detected: %lfms. adjusting deltas\n", ((f64)maximum_forward_push / 1e6));
+  //   } else {
+  //     /* smoothly roll back the latency spike adjustment */
+  //     maximum_forward_push = lerpu64(maximum_forward_push, 0, 0.7);
+  //     /*
+  //     TODO: also need to handle rendering to early here because rendering way to early
+  //     will result in higer RenderToPresent latency and also screentearing
+  //     */
+  //   }
+
+  //   if (maximum_forward_push > 0) {
+  //     GAME_LOGF("present latency adjustment now: %lfms", ((f64)maximum_forward_push / 1e6));
+  //   }
+  // } else {
+  //   /* handle the weird drift that makes us skip a frame */
+  //   GAME_LOGF("delta error propably seeing half of the fps right now!");
+  //   corrected_delta %= last_cycle_time;
+  // }
 
   // printf("corrected delta: %lf\n", ((f64)corrected_delta) / 1e6);
 
-  const u64 time = RGFW_getTimeNS();
+  // const u64 time = RGFW_getTimeNS();
 
-  /* is our fps too low to actually frame pace? */
-  if (time + render_latency >= last_vblank_time + last_cycle_time) {
-    /* just present immediatly */
-    const u64 next_optimal_present_time = RGFW_getTimeNS();
-    _ctx->target_present_time = next_optimal_present_time;
-  } else {
-    const u64 next_optimal_present_time = last_vblank_time + last_cycle_time - render_latency - 550000;
-    // printf("next_optimal_present_time: %lf\n", ((f64)next_optimal_present_time) / 1e6);
-    _ctx->target_present_time = next_optimal_present_time;
-    _ctx->last_present_render_time = render_latency;
-  }
-  _ctx->updated_target = true;
+  // /* is our fps too low to actually frame pace? */
+  // if (time + present_latency >= last_vblank_time + last_cycle_time) {
+  //   /* just present immediatly */
+  //   const u64 next_optimal_present_time = RGFW_getTimeNS();
+  //   _ctx->target_present_time = next_optimal_present_time;
+  // } else {
+  //   const u64 next_optimal_present_time =
+  //       last_vblank_time + last_cycle_time - present_latency - driver_latency_margin - maximum_forward_push;
+  //   printf("next_optimal_present_time: %lf\n", ((f64)next_optimal_present_time) / 1e6);
+  //   _ctx->target_present_time = next_optimal_present_time;
+  //   _ctx->last_present_render_time = present_latency;
+  // }
+  // _ctx->updated_target = true;
 }
