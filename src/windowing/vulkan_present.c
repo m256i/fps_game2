@@ -309,7 +309,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   GAME_LOGF("min image count: %d", surface_caps.minImageCount);
   GAME_LOGF("current transform: %d", surface_caps.currentTransform);
 
-  const u32 swapchain_length = min(max(2, surface_caps.minImageCount), surface_caps.maxImageCount);
+  const u32 swapchain_length = min(max(4, surface_caps.minImageCount), surface_caps.maxImageCount);
 
   GAME_LOGF("swapchain length: %d", swapchain_length);
 

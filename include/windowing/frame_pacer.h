@@ -56,6 +56,9 @@ typedef struct {
     render_timing_data render_timing_data;
     render_timing_data present_timing_data;
 
+    u64 last_render_start_time_stamp;
+    u64 last_input_to_photon_latency;
+
     HANDLE pacer_thread_handle;
   };
 } frame_pacer_context;
@@ -68,9 +71,6 @@ tests if the monitor can be updated
 bool should_present(frame_pacer_context *const _ctx);
 
 u0 sync_cycle_start(frame_pacer_context *const _ctx);
-
-u0 update_target_frame(frame_pacer_context *const _ctx, u32 _refresh_rate);
-
 inline u0 wait_for_vblank(frame_pacer_context *const _ctx) { _ctx->output->lpVtbl->WaitForVBlank(_ctx->output); }
 
 u0 start_tracking_render_time(frame_pacer_context *const _ctx);

@@ -95,7 +95,6 @@ int main() {
   u32 refresh_rate = RGFW_getPrimaryMonitor().mode.refreshRate;
 
   u64 rendered_frames = 0;
-  usize k = 0;
   sync_cycle_start(fpc);
   while (!window_should_close(pwin)) {
     window_check_events(pwin);
@@ -110,20 +109,17 @@ int main() {
         float time = (float)RGFW_getTimeNS() / 1e9 * 10;
         float offset = sinf(time * 1) * 0.5f;
         /* p100 fakelag */
-        // Sleep(6);
+        // Sleep(9);
         RGFW_point mousepos = RGFW_getGlobalMousePoint();
         float mousepos_x = (f32)mousepos.x / RGFW_getScreenSize().w;
         float mousepos_y = (f32)mousepos.y / RGFW_getScreenSize().h;
         mousepos.y /= RGFW_getScreenSize().h;
-
-        //      printf("mouse pos: %f %f\n", mousepos_x, mousepos_y);
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(program);
         glUniform1f(offsetX_loc, mousepos_x * 2.f - 1);
         glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f);
-        // glUniform1f(offsetY_loc, offset);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -131,10 +127,11 @@ int main() {
         f64 dt = ct - old_time;
         old_time = ct;
 
-        if (rendered_frames % 144 == 0) {
+        if (rendered_frames % (144 / 2) == 0) {
           SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
           SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
           printf("render fps: %llu\n", (usize)(1e9 / dt));
+          printf("last input->photon latency: %lfms\n", ((f64)fpc->last_input_to_photon_latency) / 1e6);
         }
       }
       stop_tracking_render_time(fpc);
