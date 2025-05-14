@@ -27,8 +27,6 @@ typedef struct {
     the last time the monitor vblanked
     */
     _Atomic u64 last_vblank_time;
-    _Atomic u64 last_monitor_cycle_time; /* how many cycles the last monitor update took */
-    _Atomic u64 monitor_frame_count;     /* how many frames the monitor has presented */
 
     spsc_u64_16_ring_t vblank_queue;
     spsc_u64_16_ring_t present_queue;
@@ -45,14 +43,6 @@ typedef struct {
     u64 last_render_duration;
     u64 last_present_duration;
 
-    u64 target_present_time;
-
-    u64 wait_until_present_frame;
-    u64 last_present_render_time;
-
-    bool presented_frame;
-    bool updated_target;
-
     render_timing_data render_timing_data;
     render_timing_data present_timing_data;
 
@@ -60,6 +50,7 @@ typedef struct {
     u64 last_input_to_photon_latency;
 
     HANDLE pacer_thread_handle;
+    bool initialized;
   };
 } frame_pacer_context;
 

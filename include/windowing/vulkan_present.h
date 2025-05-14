@@ -5,7 +5,17 @@
 #include <vulkan/vulkan.h>
 #include <glad/glad.h>
 #include <common.h>
+
 // clang-format off
+typedef enum {
+  /* renders and presents ASAP works best with gsync and high fps */
+  RENDER_MODE_IMMEDIATE,
+  /* renders and waits for vsync -> works no matter what but high latency */
+  RENDER_MODE_VSYNC,
+  /* renders and presents with accurate timing */
+  RENDER_MODE_FRAME_PACE_EXP
+  /* (experimental might not work but should result in lowest latency when working)  */
+} render_mode;
 /* the fbos that wrap the textures that vulkan owns */
 typedef struct {
   GLuint memory_object;
@@ -23,6 +33,9 @@ typedef struct {
   /* dummy gl names for the shared semaphores that reference the shared ones */
   GLuint            *gl_wait_semaphores;    // [image_count] malloc
   GLuint            *gl_signal_semaphores;  // [image_count] malloc
+
+  HANDLE            *wait_handles;
+  HANDLE            *sig_handles;
 } vk_sc_ringbuf;
 /* 
 vulkan data for the main client window 
@@ -46,15 +59,21 @@ typedef struct {
   VkFence             *inflight_fences;     // [image_count] malloc
   VkImage             *images;              // [image_count] malloc
   VkImage             *swapchain_images;    // [image_count] malloc
+  VkDeviceMemory      *image_memories;      // [image_count] malloc
   /* the properties of the vulkan surface/images and opengl fbos/textures */
   usize               texture_width, texture_height;
   VkSurfaceFormatKHR  surface_format;
+  bool                initialized;
+#ifdef GAME_DEBUG
+  VkDebugUtilsMessengerEXT debug_messenger;
+#endif
+
 } vk_context;
 // clang-format on
 /*
 initialize a vulkan surface and context after creating/resizing viewport
 */
-u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h);
+u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h, u32 _rmode);
 /*
 bind the vulkan surface as a framebuffer object in OpenGL
 returns the buffer index of which buffer opengl will draw to

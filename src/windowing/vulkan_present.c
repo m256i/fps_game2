@@ -3,11 +3,20 @@
 #include <glad/glad.h>
 #include <assert.h>
 
+#ifdef GAME_DEBUG
+
 #define CHECK_VK(result, msg)                                                                                          \
   if (result != VK_SUCCESS) {                                                                                          \
     GAME_LOGF("%s (code %d)\n", msg, result);                                                                          \
     exit(1);                                                                                                           \
   }
+#else
+#define CHECK_VK(result, msg)                                                                                          \
+  do {                                                                                                                 \
+    (u0) result;                                                                                                       \
+    (u0) msg;                                                                                                          \
+  } while (0);
+#endif
 
 // clang-format off
 static VkSemaphore create_exportable_semaphore(VkDevice _device) {
@@ -34,9 +43,33 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   ctx->swapchain.vk_signal_semaphores   = malloc(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   ctx->swapchain.gl_wait_semaphores     = malloc(sizeof(GLuint) * ctx->swapchain.count_fbos);
   ctx->swapchain.gl_signal_semaphores   = malloc(sizeof(GLuint) * ctx->swapchain.count_fbos);
+  ctx->swapchain.wait_handles           = malloc(sizeof(HANDLE) * ctx->swapchain.count_fbos);
+  ctx->swapchain.sig_handles            = malloc(sizeof(HANDLE) * ctx->swapchain.count_fbos);
+
+  memset(ctx->swapchain.vk_wait_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+  memset(ctx->swapchain.vk_signal_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+
+  memset(ctx->swapchain.gl_wait_semaphores, 0, sizeof(GLuint) * ctx->swapchain.count_fbos);
+  memset(ctx->swapchain.gl_signal_semaphores, 0, sizeof(GLuint) * ctx->swapchain.count_fbos);
+
+  GAME_LOGF("count_fbos: %zu", ctx->swapchain.count_fbos);
+
+  GLenum err = glGetError();
 
   glGenSemaphoresEXT(ctx->swapchain.count_fbos, ctx->swapchain.gl_wait_semaphores);
   glGenSemaphoresEXT(ctx->swapchain.count_fbos, ctx->swapchain.gl_signal_semaphores);
+
+  const char* exts = (const char*)glGetString(GL_EXTENSIONS);
+  assert(strstr(exts, "GL_EXT_semaphore")           != NULL);
+  assert(strstr(exts, "GL_EXT_semaphore_win32")     != NULL);
+  assert(strstr(exts, "GL_EXT_memory_object")       != NULL);
+  assert(strstr(exts, "GL_EXT_memory_object_win32") != NULL);
+
+  err = glGetError();
+  if (err != 0) {
+    GAME_CRITICALF("glGenSemaphoresEXT failed with error %u", err);
+    exit(1);
+  }
 
   for (usize i = 0; i < ctx->swapchain.count_fbos; i++) {
     ctx->swapchain.vk_wait_semaphores[i] = create_exportable_semaphore(ctx->vk_device);
@@ -63,12 +96,15 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
     handleInfo.semaphore = ctx->swapchain.vk_signal_semaphores[i];
     vkGetSemaphoreWin32HandleKHR(ctx->vk_device, &handleInfo, &sig_handle);
 
-    glImportSemaphoreWin32HandleEXT(ctx->swapchain.gl_wait_semaphores[i], GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, wait_handle);
-    glImportSemaphoreWin32HandleEXT(ctx->swapchain.gl_signal_semaphores[i], GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, sig_handle);
+    ctx->swapchain.wait_handles[i]  = wait_handle;
+    ctx->swapchain.sig_handles[i]   = sig_handle;
+
+    glImportSemaphoreWin32HandleEXT(ctx->swapchain.gl_wait_semaphores[i], GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, sig_handle);
+    glImportSemaphoreWin32HandleEXT(ctx->swapchain.gl_signal_semaphores[i], GL_HANDLE_TYPE_OPAQUE_WIN32_EXT,wait_handle);
   }
 }
 
-static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface) {
+static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface, VkPresentModeKHR  _prefered_mode) {
   u32 present_mode_count;
   vkGetPhysicalDeviceSurfacePresentModesKHR(*_phys_dev, *_surface, &present_mode_count, NULL);
   if (!present_mode_count) {
@@ -79,12 +115,12 @@ static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkS
   vkGetPhysicalDeviceSurfacePresentModesKHR(*_phys_dev, *_surface, &present_mode_count, present_modes);
   for (u32 i = 0; i != present_mode_count; i++) {
     /* we prefer immediate (no waiting) */
-    if (present_modes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+    if (present_modes[i] == _prefered_mode) {
       free(present_modes);
-      return VK_PRESENT_MODE_IMMEDIATE_KHR;
+      return _prefered_mode;
     }
   } // VK_PRESENT_MODE_IMMEDIATE_KHR
-  GAME_LOGF("immediate rendering mode not available");
+  GAME_LOGF("rendering mode not available: %i", _prefered_mode);
   exit(1);
 }
 
@@ -142,7 +178,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_printer(VkDebugUtilsMessageSeverityF
   return VK_FALSE;
 }
 
-u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h) {
+u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h, u32 _rmode) {
+  if (_context->initialized) {
+    GAME_WARNF("initialize_vulkan_context called on already initialized vk context");  
+    return;
+  }
+  
   memset(_context, 0, sizeof *_context);
 #ifdef GAME_DEBUG
   {
@@ -223,11 +264,10 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   }
 
 #ifdef GAME_DEBUG
-  VkDebugUtilsMessengerEXT debug_messenger;
   PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
       (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
   if (vkCreateDebugUtilsMessengerEXT != NULL) {
-    vkCreateDebugUtilsMessengerEXT(instance, &debug_create_info, NULL, &debug_messenger);
+    vkCreateDebugUtilsMessengerEXT(instance, &debug_create_info, NULL, &_context->debug_messenger);
   }
 #endif
 
@@ -296,6 +336,21 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   _screen_w = max(surface_caps.minImageExtent.width, min(_screen_w, surface_caps.maxImageExtent.width));
   _screen_h = max(surface_caps.minImageExtent.height, min(_screen_h, surface_caps.maxImageExtent.height));
 
+  while (_screen_w == 0 || _screen_h == 0) {
+    /* wait for pending WM_DISPLAYCHANGE fires when calling this right after resizing the window */
+    MSG msg;
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&msg);
+      DispatchMessage(&msg);
+    }
+
+    CHECK_VK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_dev, surface, &surface_caps),
+    "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+
+    _screen_w = max(surface_caps.minImageExtent.width, min(_screen_w, surface_caps.maxImageExtent.width));
+    _screen_h = max(surface_caps.minImageExtent.height, min(_screen_h, surface_caps.maxImageExtent.height));
+  }
+
   _context->texture_width = _screen_w;
   _context->texture_height = _screen_h;
 
@@ -314,7 +369,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   GAME_LOGF("swapchain length: %d", swapchain_length);
 
   const VkSurfaceFormatKHR format = get_viable_surface_format(&phys_dev, &surface);
-  const VkPresentModeKHR present_mode = get_viable_present_mode(&phys_dev, &surface);
+  const VkPresentModeKHR present_mode = _rmode == RENDER_MODE_VSYNC ? get_viable_present_mode(&phys_dev, &surface, VK_PRESENT_MODE_FIFO_KHR) : get_viable_present_mode(&phys_dev, &surface, VK_PRESENT_MODE_IMMEDIATE_KHR);
 
   _context->surface_format = format;
 
@@ -375,6 +430,8 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
   _context->images = malloc(sizeof(VkImage) * image_count);
   _context->swapchain_images = malloc(sizeof(VkImage) * image_count);
+  _context->image_memories = malloc(sizeof(VkDeviceMemory) * image_count);
+
   vkGetSwapchainImagesKHR(device, swapchain, &image_count, _context->swapchain_images);
 
   for (u32 i = 0; i < image_count; i++) {
@@ -410,22 +467,36 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
         .memoryTypeIndex = find_mem_type(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, phys_dev),
     };
 
-    VkDeviceMemory mem;
-    vkAllocateMemory(device, &alloc_info, NULL, &mem);
-    vkBindImageMemory(device, _context->images[i], mem, 0);
+  
+    vkAllocateMemory(device, &alloc_info, NULL, &_context->image_memories[i]);
+    vkBindImageMemory(device, _context->images[i], _context->image_memories[i], 0);
 
     VkMemoryGetWin32HandleInfoKHR handle_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
-        .memory = mem,
+        .memory = _context->image_memories[i],
         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
     };
     
     HANDLE win_handle;
     vkGetMemoryWin32HandleKHR(device, &handle_info, &win_handle);
 
-    shared_fbo sfbo = {};
+    GLenum err = glGetError();
+
+    shared_fbo sfbo = {0};
     glCreateMemoryObjectsEXT(1, &sfbo.memory_object);
+    
+    err = glGetError();
+    if (err != 0) {
+      GAME_CRITICALF("glCreateMemoryObjectsEXT failed with error %u", err);
+      exit(1);
+    }
+
     glImportMemoryWin32HandleEXT(sfbo.memory_object, (GLsizeiptr)req.size, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, win_handle);
+    err = glGetError();
+    if (err != 0) {
+      GAME_CRITICALF("glImportMemoryWin32HandleEXT failed with error %u", err);
+      exit(1);
+    }
 
     GLenum gl_format;
     switch (format.format) {
@@ -467,21 +538,34 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   }
 
   initialize_ringbuffer_sync(_context);
+  _context->initialized = true;
+
   GAME_LOGF("successfully initialized vulkan surface");
 }
 
 usize bind_vulkan_surface(vk_context *ctx) {
+#ifdef GAME_DEBUG
+  if (!ctx) {
+    GAME_WARNF("bind_vulkan_surface call on uninitialized vk_context");
+    return 0;
+  }
+  if (!ctx->initialized) {
+    GAME_WARNF("bind_vulkan_surface call on uninitialized vk_context");
+    return 0;
+  }
+#endif
+
   vk_sc_ringbuf *rb = &ctx->swapchain;
   rb->current_index = (rb->current_index + 1) % rb->count_fbos;
   shared_fbo *sf = &rb->shared_fbos[rb->current_index];
   
   glWaitSemaphoreEXT(
-    rb->gl_signal_semaphores[rb->current_index], 
+    rb->gl_wait_semaphores[rb->current_index], 
     0, NULL, 1, 
     (GLuint[]){sf->texture_handle}, 
     (GLenum[]){GL_TEXTURE_2D}
   );
-  
+
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, sf->fbo_handle);
   glViewport(0, 0, ctx->texture_width, ctx->texture_height);
   
@@ -489,11 +573,22 @@ usize bind_vulkan_surface(vk_context *ctx) {
 }
 
 static u0 vulkan_wait_for_opengl(vk_context *ctx) {
+#ifdef GAME_DEBUG
+  if (!ctx) {
+    GAME_WARNF("vulkan_wait_for_opengl call on uninitialized vk_context");
+    return;
+  }
+  if (!ctx->initialized) {
+    GAME_WARNF("vulkan_wait_for_opengl call on uninitialized vk_context");
+    return;
+  }
+#endif
+
   vk_sc_ringbuf *rb = &ctx->swapchain;
   u32 idx = rb->current_index;
 
   glSignalSemaphoreEXT(
-    rb->gl_wait_semaphores[idx], 
+    rb->gl_signal_semaphores[idx], 
     0, NULL, 1, 
     (GLuint[]){rb->shared_fbos[idx].texture_handle}, 
     (GLenum[]){GL_TEXTURE_2D}
@@ -513,23 +608,33 @@ static u0 vulkan_wait_for_opengl(vk_context *ctx) {
 }
 
 u0 vulkan_present(vk_context *ctx) {
+#ifdef GAME_DEBUG
+  if (!ctx) {
+    GAME_WARNF("vulkan_present call on uninitialized vk_context");
+    return;
+  }
+  if (!ctx->initialized) {
+    GAME_WARNF("vulkan_present call on uninitialized vk_context");
+    return;
+  }
+#endif
   vulkan_wait_for_opengl(ctx);
   vk_sc_ringbuf *rb = &ctx->swapchain;
   usize source_index =rb->current_index;
   u32 image_index;
-
-  vkAcquireNextImageKHR(
+  
+  CHECK_VK(vkAcquireNextImageKHR(
     ctx->vk_device, 
     ctx->vk_swapchain, 
     UINT64_MAX, 
     rb->vk_wait_semaphores[rb->current_index],
     VK_NULL_HANDLE, 
     &image_index
-  );
-
+  ), "vkAcquireNextImageKHR failed");
+  
   vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index], VK_TRUE, UINT64_MAX);
   vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[image_index]);
-
+  
   const VkCommandBuffer cmd = ctx->cmd_buffers[image_index];
   vkResetCommandBuffer(cmd, 0);
   VkCommandBufferBeginInfo bi = {
@@ -623,6 +728,7 @@ u0 vulkan_present(vk_context *ctx) {
       .signalSemaphoreCount = 1,
       .pSignalSemaphores = &rb->vk_signal_semaphores[image_index]
   };
+
   vkQueueSubmit(ctx->vk_queue, 1, &submit, ctx->inflight_fences[image_index]);
 
   const VkPresentInfoKHR presentInfo = {
@@ -633,16 +739,44 @@ u0 vulkan_present(vk_context *ctx) {
       .pSwapchains = &ctx->vk_swapchain,
       .pImageIndices = &image_index
   };
-  vkQueuePresentKHR(ctx->vk_queue, &presentInfo);
+
+  if (vkQueuePresentKHR(ctx->vk_queue, &presentInfo) == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT) {
+    GAME_CRITICALF("fullscreen exclusive mode lost");
+    PFN_vkAcquireFullScreenExclusiveModeEXT vkAcquireFullScreenExclusiveModeEXT =
+      (PFN_vkAcquireFullScreenExclusiveModeEXT)vkGetInstanceProcAddr(ctx->vk_instance, "vkAcquireFullScreenExclusiveModeEXT");
+  
+    if (vkAcquireFullScreenExclusiveModeEXT == NULL) {
+      GAME_LOGF("failed to load vkAcquireFullScreenExclusiveModeEXT");
+      exit(1);
+    }
+    if (vkAcquireFullScreenExclusiveModeEXT(ctx->vk_device, ctx->vk_swapchain) != VK_SUCCESS) {
+      GAME_LOGF("couldn't acquire fullscreen exclusive mode (you are propably on windows 11 +)");
+    }
+    CHECK_VK(vkQueuePresentKHR(ctx->vk_queue, &presentInfo), "couldnt aqcuire fullscreen exclusive mode after refocusing");
+  }
 }
 
 u0 destroy_vulkan_context(vk_context *_context)
 {
   if (!_context) return;
+  if (!_context->initialized) {
+    GAME_WARNF("destroy_vulkan_context called on un-initialized vk context");  
+    return;
+  }
+
+  vkDeviceWaitIdle(_context->vk_device);
+
+  for (usize idx = 0; idx != _context->swapchain.count_fbos; idx++) {
+    glSignalSemaphoreEXT(
+      _context->swapchain.gl_wait_semaphores[idx], 
+      0, NULL, 1, 
+      (GLuint[]){_context->swapchain.shared_fbos[idx].texture_handle}, 
+      (GLenum[]){GL_TEXTURE_2D}
+    );
+  }
 
   VkDevice device = _context->vk_device;
 
-  // 1. Destroy OpenGL-wrapped Vulkan objects
   vk_sc_ringbuf *rb = &_context->swapchain;
   if (rb->shared_fbos) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
@@ -666,21 +800,47 @@ u0 destroy_vulkan_context(vk_context *_context)
 
   if (rb->vk_wait_semaphores) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
-      if (rb->vk_wait_semaphores[i])
+      if (rb->vk_wait_semaphores[i]) {
+        GAME_LOGF("destroyed vulkan wait semaphore %d", i);
         vkDestroySemaphore(device, rb->vk_wait_semaphores[i], NULL);
+      }
     }
     free(rb->vk_wait_semaphores);
   }
 
   if (rb->vk_signal_semaphores) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
-      if (rb->vk_signal_semaphores[i])
+      if (rb->vk_signal_semaphores[i]) {
+        GAME_LOGF("destroyed vulkan signal semaphore %d", i);
         vkDestroySemaphore(device, rb->vk_signal_semaphores[i], NULL);
+      }
     }
     free(rb->vk_signal_semaphores);
   }
 
-  // 2. Destroy Vulkan objects
+  if (rb->wait_handles) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      CloseHandle(rb->wait_handles[i]);
+    }
+  }
+
+  if (rb->sig_handles) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      CloseHandle(rb->sig_handles[i]);
+    }
+  }
+
+  if (_context->inflight_fences) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      if (_context->inflight_fences[i]) {
+        GAME_LOGF("destroyed vulkan fence %d", i);
+        vkResetFences(_context->vk_device, 1, &_context->inflight_fences[i]);
+        vkDestroyFence(device, _context->inflight_fences[i], NULL);
+      }
+    }
+    free(_context->inflight_fences);
+  }
+
   if (_context->cmd_buffers) {
     vkFreeCommandBuffers(device, _context->cmd_pool, (uint32_t)rb->count_fbos, _context->cmd_buffers);
     free(_context->cmd_buffers);
@@ -690,16 +850,18 @@ u0 destroy_vulkan_context(vk_context *_context)
     vkDestroyCommandPool(device, _context->cmd_pool, NULL);
   }
 
-  if (_context->inflight_fences) {
-    for (usize i = 0; i < rb->count_fbos; ++i) {
-      if (_context->inflight_fences[i])
-        vkDestroyFence(device, _context->inflight_fences[i], NULL);
+  if (_context->images) {
+    for (usize i =0; i != _context->swapchain.count_fbos; i++) {
+      vkDestroyImage(_context->vk_device, _context->images[i], NULL);
     }
-    free(_context->inflight_fences);
+    free(_context->images); // These are not created or destroyed manually, just array of handles
   }
 
-  if (_context->images) {
-    free(_context->images); // These are not created or destroyed manually, just array of handles
+  if (_context->image_memories) {
+    for (usize i =0; i != _context->swapchain.count_fbos; i++) {
+      vkFreeMemory(_context->vk_device, _context->image_memories[i], NULL);
+    }
+    free(_context->image_memories);
   }
 
   if (_context->swapchain_images) {
@@ -715,14 +877,23 @@ u0 destroy_vulkan_context(vk_context *_context)
   }
 
   if (device) {
-    vkDeviceWaitIdle(device);
     vkDestroyDevice(device, NULL);
   }
 
   if (_context->vk_instance) {
+#ifdef GAME_DEBUG
+PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT =
+    (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(_context->vk_instance, "vkDestroyDebugUtilsMessengerEXT");
+if (vkDestroyDebugUtilsMessengerEXT != NULL) {
+  vkDestroyDebugUtilsMessengerEXT(_context->vk_instance,  _context->debug_messenger, NULL);
+}
+#endif
     vkDestroyInstance(_context->vk_instance, NULL);
   }
 
+  GAME_LOGF("successfully destroyed vulkan surface");
+
+  _context->initialized = false;
   memset(_context, 0, sizeof(*_context));
 }
 

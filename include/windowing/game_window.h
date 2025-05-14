@@ -3,16 +3,37 @@
 
 #include <RGFW/RGFW.h>
 #include <common.h>
+#include <windowing/vulkan_present.h>
+#include <windowing/frame_pacer.h>
+
+typedef bool (*WINDOW_RENDER_PROC)(void);
 
 typedef struct {
+  vk_context vk_ctx;
+  frame_pacer_context fpc;
+
   RGFW_window *internal_window;
   usize screen_width, screen_height;
-  bool is_fullscreen;
+  u32 refresh_rate;
+  u32 render_mode;
+  WINDOW_RENDER_PROC render_proc;
+  const char *window_name;
+  bool initialized;
+  bool in_focus;
 } window;
 
-window *create_window(const char *const _name, usize _w, usize _h, bool fullscreen);
-u0 destroy_window(window *const _window);
-bool window_should_close(const window *const _window);
-u0 window_check_events(const window *const _window);
-u0 window_swap_buffers(const window *const _window);
+u0 create_gl_context(u0);
+
+u0 create_global_window(const char *const _name, usize _w, usize _h, u32 _render_mode);
+u0 destroy_global_window(u0);
+
+u0 window_set_render_proc(WINDOW_RENDER_PROC _proc);
+u0 window_set_render_mode(u32 _newmode);
+
+u0 window_set_size(usize _w, usize _h);
+
+bool window_should_close(u0);
+
+u0 window_run_render_proc(u0);
+
 #endif // WINDOWING_GAME_WINDOW_H_

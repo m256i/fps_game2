@@ -41,40 +41,30 @@ u64 get_average_render_latency(render_timing_data *const _data) {
 DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
   GAME_LOGF("... and running!");
   frame_pacer_context *ctx = (frame_pacer_context *)_params;
-  u64 last_vblank_time_ = 0;
-  u64 monitor_fc = 0;
+
   spsc_u64_16_init(&ctx->vblank_queue);
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
-  atomic_store_explicit(&ctx->last_monitor_cycle_time, (u64)(6.92 * 1e6), memory_order_release);
   while (atomic_load_explicit(&ctx->stop_flag, memory_order_relaxed) != true) {
     wait_for_vblank(ctx);
     SetThreadPriorityBoost(GetCurrentThread(), FALSE);
-    const u64 time = RGFW_getTimeNS() - 50000;
-    monitor_fc++;
-    atomic_store_explicit(&ctx->last_vblank_time, time, memory_order_release);
-    atomic_store_explicit(&ctx->monitor_frame_count, monitor_fc, memory_order_release);
-    // printf("time delta between vsyncs (according to windows): %llu\n", time - last_vblank_time_);
-    last_vblank_time_ = time;
+    atomic_store_explicit(&ctx->last_vblank_time, RGFW_getTimeNS() - 50000, memory_order_release);
   }
   spsc_u64_16_clear(&ctx->vblank_queue);
   return 0;
 }
 
 u0 initialize_frame_pacer(frame_pacer_context *const _ctx) {
+  if (_ctx->initialized) { return; }
+
   _ctx->adapter = NULL;
   _ctx->output = NULL;
 
+  _ctx->initialized = true;
+
   _ctx->last_render_duration = 0;
   _ctx->last_present_duration = 0;
-
-  _ctx->target_present_time = 0;
-  _ctx->wait_until_present_frame = 0;
-  _ctx->last_present_render_time = 0;
   _ctx->last_render_start_time_stamp = 0;
-
-  _ctx->presented_frame = false;
-  _ctx->updated_target = false;
 
   init_render_timing_data(&_ctx->render_timing_data);
   init_render_timing_data(&_ctx->present_timing_data);
@@ -83,8 +73,6 @@ u0 initialize_frame_pacer(frame_pacer_context *const _ctx) {
   spsc_u64_16_init(&_ctx->render_queue);
 
   atomic_store(&_ctx->last_vblank_time, 0ull);
-  atomic_store(&_ctx->last_monitor_cycle_time, 0ull);
-  atomic_store(&_ctx->monitor_frame_count, 0ull);
   atomic_store(&_ctx->stop_flag, false);
 
   IDXGIFactory1 *factory = NULL;
@@ -115,6 +103,7 @@ u0 initialize_frame_pacer(frame_pacer_context *const _ctx) {
 }
 
 u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
+  if (!_ctx->initialized) { return; }
   atomic_store_explicit(&_ctx->stop_flag, true, memory_order_release);
   /*
   wait before destroying resources to prevent crash
@@ -122,7 +111,6 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
   while (WaitForSingleObject(_ctx->pacer_thread_handle, 0) != WAIT_OBJECT_0) {
     continue;
   }
-
   if (_ctx->output) {
     _ctx->output->lpVtbl->Release(_ctx->output);
     _ctx->output = NULL;
@@ -133,6 +121,7 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
   }
   CoUninitialize();
   GAME_LOGF("destroyed frame pacer");
+  _ctx->initialized = false;
 }
 
 u0 start_tracking_render_time(frame_pacer_context *const _ctx) {
@@ -142,7 +131,6 @@ u0 start_tracking_render_time(frame_pacer_context *const _ctx) {
 }
 u0 stop_tracking_render_time(frame_pacer_context *const _ctx) {
   _ctx->last_render_duration = RGFW_getTimeNS() - _ctx->last_render_duration;
-  // GAME_LOGF("last render duration: %llu", _ctx->last_render_duration);
   update_render_timing_data(&_ctx->render_timing_data, _ctx->last_render_duration);
 }
 
@@ -153,7 +141,6 @@ u0 start_tracking_present_time(frame_pacer_context *const _ctx) {
 
 u0 stop_tracking_present_time(frame_pacer_context *const _ctx) {
   _ctx->last_present_duration = RGFW_getTimeNS() - _ctx->last_present_duration;
-  // GAME_LOGF("last present duration: %llu", _ctx->last_present_duration);
   update_render_timing_data(&_ctx->present_timing_data, _ctx->last_present_duration);
 }
 
@@ -161,6 +148,8 @@ u0 stop_tracking_present_time(frame_pacer_context *const _ctx) {
 schedules the next render and returns in how many vblanks we can present
 */
 u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refresh_rate) {
+  if (!_ctx->initialized) { return; }
+
   const u64 screen_cycle_time_ns = (u64)((1000.0 / (f64)_refresh_rate) * 1e6);
   const u64 time = RGFW_getTimeNS();
 
@@ -181,25 +170,31 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
       return;
     }
   } else {
-    GAME_LOGF("---------- NEW VBLANK ----------");
-    GAME_LOGF("new: %llu old: %llu", last_vblank, previous_vblank);
+    // GAME_LOGF("---------- NEW VBLANK ----------");
+    // GAME_LOGF("new: %llu old: %llu", last_vblank, previous_vblank);
     previous_vblank = last_vblank;
+    /*
+    TODO: on low fps these result in always missing frames
+    */
     spsc_u64_16_clear(&_ctx->render_queue);
     spsc_u64_16_clear(&_ctx->present_queue);
   }
 
   _ctx->last_input_to_photon_latency = last_vblank - _ctx->last_render_start_time_stamp;
 
-  GAME_LOGF("time: %llu", time);
+  // GAME_LOGF("time: %llu", time);
 
   const u64 render_time_estimate = get_average_render_latency(&_ctx->render_timing_data);
   const u64 present_time_estimate = get_average_render_latency(&_ctx->present_timing_data);
   const u64 driver_latency_margin = 250000; // 250us
   const u64 timing_error_margin = 500;      // 0.5us
 
-  GAME_LOGF("render_time_estimate: %llu", render_time_estimate);
-  GAME_LOGF("present_time_estimate: %llu", present_time_estimate);
+  // GAME_LOGF("render_time_estimate: %llu", render_time_estimate);
+  // GAME_LOGF("present_time_estimate: %llu", present_time_estimate);
 
+  /*
+  TODO: on low fps these together with the queue flushing in line 185/186 result in always missing frames
+  */
   usize target_vblank_offset = 1;
   while (true) {
     const u64 next_vblank = last_vblank + (screen_cycle_time_ns * target_vblank_offset);
@@ -208,7 +203,7 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
     for some time to prevent stuttering
     */
     const i64 next_optimal_present_time = (i64)next_vblank - present_time_estimate - driver_latency_margin;
-    GAME_LOGF("next_optimal_present_time: %lli", next_optimal_present_time);
+    //   GAME_LOGF("next_optimal_present_time: %lli", next_optimal_present_time);
 
     /* margin too tight try to render + present until the next vsync */
     if (next_optimal_present_time <= (i64)time + (i64)timing_error_margin) {
@@ -217,19 +212,19 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
         target_vblank_offset++;
         continue;
       }
-      GAME_WARNF("present margin too tight, but skipping too many vsyncs, just doing something...");
+      // GAME_WARNF("present margin too tight, but skipping too many vsyncs, just doing something...");
     }
 
     const i64 next_optimal_render_time = (i64)next_optimal_present_time - render_time_estimate - timing_error_margin;
-    GAME_LOGF("next_optimal_render_time: %lli", next_optimal_render_time);
+    // GAME_LOGF("next_optimal_render_time: %lli", next_optimal_render_time);
 
     if (next_optimal_render_time <= (i64)time + (i64)timing_error_margin) {
-      GAME_WARNF("render margin too tight, trying next vsync");
+      // GAME_WARNF("render margin too tight, trying next vsync");
       if (target_vblank_offset <= 4) {
         target_vblank_offset++;
         continue;
       }
-      GAME_WARNF("render margin too tight, but skipping too many vsyncs, just doing something...");
+      // GAME_WARNF("render margin too tight, but skipping too many vsyncs, just doing something...");
     }
 
     spsc_u64_16_enqueue(&_ctx->render_queue, (u64)next_optimal_render_time);
@@ -241,12 +236,13 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
 u0 sync_cycle_start(frame_pacer_context *const _ctx) { wait_for_vblank(_ctx); }
 
 bool should_present(frame_pacer_context *const _ctx) {
+  if (!_ctx->initialized) { return false; }
   const u64 time = RGFW_getTimeNS();
   bool found = false;
   u64 target = 0;
   while (spsc_u64_16_peek(&_ctx->present_queue, &target)) {
     if (time >= target) {
-      GAME_LOGF("presented at time: %llu (delta: %llu)", time, time - target);
+      // GAME_LOGF("presented at time: %llu (delta: %llu)", time, time - target);
       spsc_u64_16_dequeue(&_ctx->present_queue, &target);
       found = true;
     } else {
@@ -257,12 +253,13 @@ bool should_present(frame_pacer_context *const _ctx) {
 }
 
 bool should_render(frame_pacer_context *const _ctx) {
+  if (!_ctx->initialized) { return false; }
   const u64 time = RGFW_getTimeNS();
   bool found = false;
   u64 target = 0;
   while (spsc_u64_16_peek(&_ctx->render_queue, &target)) {
     if (time >= target) {
-      GAME_LOGF("rendered at time: %llu (delta: %llu)", time, time - target);
+      // GAME_LOGF("rendered at time: %llu (delta: %llu)", time, time - target);
       spsc_u64_16_dequeue(&_ctx->render_queue, &target);
       found = true;
     } else {
