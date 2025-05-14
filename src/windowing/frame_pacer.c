@@ -220,9 +220,7 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
       GAME_WARNF("present margin too tight, but skipping too many vsyncs, just doing something...");
     }
 
-    const i64 next_optimal_render_time =
-        (i64)next_optimal_present_time - render_time_estimate - driver_latency_margin - timing_error_margin;
-
+    const i64 next_optimal_render_time = (i64)next_optimal_present_time - render_time_estimate - timing_error_margin;
     GAME_LOGF("next_optimal_render_time: %lli", next_optimal_render_time);
 
     if (next_optimal_render_time <= (i64)time + (i64)timing_error_margin) {
