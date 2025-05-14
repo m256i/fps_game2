@@ -109,7 +109,7 @@ int main() {
         float time = (float)RGFW_getTimeNS() / 1e9 * 10;
         float offset = sinf(time * 1) * 0.5f;
         /* p100 fakelag */
-        // Sleep(9);
+        // Sleep(6);
         RGFW_point mousepos = RGFW_getGlobalMousePoint();
         float mousepos_x = (f32)mousepos.x / RGFW_getScreenSize().w;
         float mousepos_y = (f32)mousepos.y / RGFW_getScreenSize().h;
