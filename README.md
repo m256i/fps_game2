@@ -20,4 +20,4 @@
 
 ![image](https://github.com/user-attachments/assets/4628c372-30cc-4694-a29f-a785454253d3)
 
-(ipt->photon latency on my machine, measured (CurrentVBlankTimeStamp-LastRenderBeginTimestamp))
+(ipt->photon latency on my machine, measured (CurrentFlipTimeStamp-LastRenderBeginTimestamp))
