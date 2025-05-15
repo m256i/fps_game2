@@ -28,7 +28,6 @@ typedef struct {
     */
     _Atomic u64 last_vblank_time;
 
-    spsc_u64_16_ring_t vblank_queue;
     spsc_u64_16_ring_t present_queue;
     spsc_u64_16_ring_t render_queue;
   };
@@ -60,8 +59,6 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx);
 tests if the monitor can be updated
 */
 bool should_present(frame_pacer_context *const _ctx);
-
-u0 sync_cycle_start(frame_pacer_context *const _ctx);
 inline u0 wait_for_vblank(frame_pacer_context *const _ctx) { _ctx->output->lpVtbl->WaitForVBlank(_ctx->output); }
 
 u0 start_tracking_render_time(frame_pacer_context *const _ctx);

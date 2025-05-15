@@ -41,16 +41,13 @@ u64 get_average_render_latency(render_timing_data *const _data) {
 DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
   GAME_LOGF("... and running!");
   frame_pacer_context *ctx = (frame_pacer_context *)_params;
-
-  spsc_u64_16_init(&ctx->vblank_queue);
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-
   while (atomic_load_explicit(&ctx->stop_flag, memory_order_relaxed) != true) {
     wait_for_vblank(ctx);
     SetThreadPriorityBoost(GetCurrentThread(), FALSE);
-    atomic_store_explicit(&ctx->last_vblank_time, RGFW_getTimeNS() - 50000, memory_order_release);
+    /* TODO: random stupid offset */
+    atomic_store_explicit(&ctx->last_vblank_time, RGFW_getTimeNS() - 55000, memory_order_release);
   }
-  spsc_u64_16_clear(&ctx->vblank_queue);
   return 0;
 }
 
@@ -174,7 +171,7 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
     // GAME_LOGF("new: %llu old: %llu", last_vblank, previous_vblank);
     previous_vblank = last_vblank;
     /*
-    TODO: on low fps these result in always missing frames
+    TODO: on low fps these result in always missing frames obviously
     */
     spsc_u64_16_clear(&_ctx->render_queue);
     spsc_u64_16_clear(&_ctx->present_queue);
@@ -232,8 +229,6 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
     break;
   }
 }
-
-u0 sync_cycle_start(frame_pacer_context *const _ctx) { wait_for_vblank(_ctx); }
 
 bool should_present(frame_pacer_context *const _ctx) {
   if (!_ctx->initialized) { return false; }

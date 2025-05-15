@@ -58,10 +58,13 @@ bool render(u0) {
   f64 dt = ct - old_time;
   old_time = ct;
 
-  if (rendered_frames % 1000 == 0) {
+  if (rendered_frames % 300 == 0) {
     printf("render fps: %llu\n", (usize)(1e9 / dt));
-    // printf("last input->photon latency: %lfms\n", ((f64)fpc->last_input_to_photon_latency) / 1e6);
+    printf("last input->photon latency: %lfms\n", ((f64)window_get_last_input_to_photon_latency()) / 1e6);
   }
+
+  rendered_frames++;
+  return true;
 }
 
 int main() {

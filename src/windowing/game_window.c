@@ -103,6 +103,10 @@ u0 create_global_window(const char *const _name, usize _w, usize _h, u32 _render
   global_window->in_focus = true;
   global_window->render_mode = _render_mode;
 
+  if (_render_mode == RENDER_MODE_FRAME_PACE_EXP || _render_mode == RENDER_MODE_FRAME_PACE_EXP) {
+    GAME_CRITICALF("using either RENDER_MODE_FRAME_PACE_EXP or RENDER_MODE_FRAME_PACE_EXP remember to turn off G-Sync");
+  }
+
   memset(&global_window->fpc, 0, sizeof global_window->fpc);
   memset(&global_window->vk_ctx, 0, sizeof global_window->vk_ctx);
 
@@ -219,3 +223,5 @@ u0 window_run_render_proc(u0) {
   }
   }
 }
+
+u64 window_get_last_input_to_photon_latency(u0) { return global_window->fpc.last_input_to_photon_latency; }

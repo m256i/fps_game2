@@ -33,7 +33,7 @@ typedef struct {
   /* dummy gl names for the shared semaphores that reference the shared ones */
   GLuint            *gl_wait_semaphores;    // [image_count] malloc
   GLuint            *gl_signal_semaphores;  // [image_count] malloc
-
+  /* external win32 handles for the shared state */
   HANDLE            *wait_handles;
   HANDLE            *sig_handles;
 } vk_sc_ringbuf;

@@ -33,7 +33,8 @@ u0 window_set_render_mode(u32 _newmode);
 u0 window_set_size(usize _w, usize _h);
 
 bool window_should_close(u0);
-
 u0 window_run_render_proc(u0);
+
+u64 window_get_last_input_to_photon_latency(u0);
 
 #endif // WINDOWING_GAME_WINDOW_H_
