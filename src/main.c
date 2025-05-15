@@ -59,7 +59,7 @@ bool render(u0) {
   old_time = ct;
 
   if (rendered_frames % 300 == 0) {
-    printf("render fps: %llu\n", (usize)(1e9 / dt));
+    // printf("render fps: %llu\n", (usize)(1e9 / dt));
     printf("last input->photon latency: %lfms\n", ((f64)window_get_last_input_to_photon_latency()) / 1e6);
   }
 
