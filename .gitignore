@@ -3,6 +3,7 @@
 /build
 /compiled
 /game_logs.txt
+/*.txt
 /output.txt
 *.exe
 *.lib
