@@ -1,4 +1,4 @@
-# Game engine thing
+# Game engine thing (progress documentation for myself)
 ##   (Future) feature index:
 - [x] Custom rendering backend/Win32 surface
 - [x] Relatively advanced frame pacer (basically done)
@@ -16,5 +16,6 @@
   
 ![image](https://github.com/user-attachments/assets/e40e4d52-fd81-49aa-87fc-5716dbe0b618)
 (timings of the present calls compared to the next vsync (yellow line) on average)
+
 ![image](https://github.com/user-attachments/assets/d7e9da38-a322-4f21-9d86-1056098dadf2)
 (average ipt-photon latency on my machine, measured as (CurrentVBlankTimeStamp-LastRenderBeginTimestamp))
