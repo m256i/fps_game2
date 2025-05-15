@@ -15,7 +15,9 @@
   - By scheduling rendering and presenting so that the last render gets flipped on to the monitor virtually instantly
   
 ![image](https://github.com/user-attachments/assets/e40e4d52-fd81-49aa-87fc-5716dbe0b618)
+
 (timings of the present calls compared to the next vsync (yellow line) on average)
 
 ![image](https://github.com/user-attachments/assets/4628c372-30cc-4694-a29f-a785454253d3)
+
 (ipt->photon latency on my machine, measured (CurrentVBlankTimeStamp-LastRenderBeginTimestamp))
