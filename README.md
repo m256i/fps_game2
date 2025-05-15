@@ -7,12 +7,12 @@
 - [ ] Mesh and animation loading using [Assimp](https://github.com/assimp/assimp)
 - [ ] Model system with: static render model, that can have LODS and can be instanced optionally
 
-##   Win32 backend/Frame pacer:
+##   Win32 backend/frame pacer:
 - Vulkan backend provides exclusive fullscreen mode:
   - OpenGL draws to a shared vkImage that gets Blit'ted into the swapchain directly
   - Synchronization through external win32 semaphores
 - We aim to provide minimal screen tearing and lowest input->photon latency:
-  - By scheduling rendering and presenting so that the last render gets flipped on to the monitor virtually instantly
+  - By scheduling rendering and presenting so that the last render gets flipped on to the monitor in time for the next vblank
   
 ![image](https://github.com/user-attachments/assets/e40e4d52-fd81-49aa-87fc-5716dbe0b618)
 
