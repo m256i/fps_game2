@@ -6,3 +6,15 @@
 - [ ] Fast OpenGL reference counting resource manager  
 - [ ] Mesh and animation loading using [Assimp](https://github.com/assimp/assimp)
 - [ ] Model system with: static render model, that can have LODS and can be instanced optionally
+
+##   Win32 backend/Frame pacer:
+- Vulkan backend provides exclusive fullscreen mode:
+  - OpenGL draws to a shared vkImage that gets Blit'ted into the swapchain directly
+  - Synchronization through external win32 semaphores
+- We aim to provide minimal screen tearing and lowest input->photon latency:
+  - By scheduling rendering and presenting so that the last render gets flipped on to the monitor virtually instantly
+  
+![image](https://github.com/user-attachments/assets/e40e4d52-fd81-49aa-87fc-5716dbe0b618)
+(timings of the present calls compared to the next vsync (yellow line) on average)
+![image](https://github.com/user-attachments/assets/d7e9da38-a322-4f21-9d86-1056098dadf2)
+(average ipt-photon latency on my machine, measured as (CurrentVBlankTimeStamp-LastRenderBeginTimestamp))
