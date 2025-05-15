@@ -1,8 +1,8 @@
 # Game engine thing
 ##   (Future) feature index:
 - [x] Custom rendering backend/Win32 surface
-- [x] Relatively advanced frame pacer
-- [ ] Fast SSE4.2/AVX2 accelerated math library
+- [x] Relatively advanced frame pacer (basically done)
+- [ ] Fast SSE4.2/AVX2 accelerated math library (done soon)
 - [ ] Fast OpenGL reference counting resource manager  
 - [ ] Mesh and animation loading using [Assimp](https://github.com/assimp/assimp)
 - [ ] Model system with: static render model, that can have LODS and can be instanced optionally
