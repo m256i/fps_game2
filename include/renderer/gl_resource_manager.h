@@ -385,8 +385,20 @@ static u0 destroy_resource(gl_resource_data *resource_data, gl_resource_handle *
   assert(str_hash_table_get_index(table, resource_data->resource_name) == (*_handle)->hashed_resource_index);
 
   /*
-  TODO: implement
+  implement
   */
+
+  resource_table_slot *resource_slot = str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
+  assert(resource_slot->ref_count > 0);
+  --resource_slot->ref_count;
+
+  if (resource_slot->ref_count == 0) {
+    /*
+    if (!esource_slot->postpone_deletion_cb || resource_slot->postpone_deletion_cb()) {
+      delete gl object and our handles to it
+    }
+    */
+  }
 }
 
 #endif // RENDERER_GL_RESOURCE_MANAGER_H_

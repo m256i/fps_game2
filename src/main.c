@@ -87,7 +87,7 @@ int main() {
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
   // clang-format off
-  gl_resource_data rd = (gl_resource_data){
+  const gl_resource_data rd = (gl_resource_data){
     .desc.vertex_buffer = {
       .creation_info_type = RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
       .buffer_usage = GL_STATIC_DRAW,
