@@ -38,6 +38,8 @@ u64 get_average_render_latency(render_timing_data *const _data) {
   return margin_ns;
 }
 
+u0 wait_for_vblank(frame_pacer_context *const _ctx) { _ctx->output->lpVtbl->WaitForVBlank(_ctx->output); }
+
 DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
   GAME_LOGF("... and running!");
   frame_pacer_context *ctx = (frame_pacer_context *)_params;
@@ -46,7 +48,7 @@ DWORD WINAPI pacer_thread_proc(_In_ LPVOID _params) {
     wait_for_vblank(ctx);
     SetThreadPriorityBoost(GetCurrentThread(), FALSE);
     /* TODO: random stupid offset */
-    atomic_store_explicit(&ctx->last_vblank_time, RGFW_getTimeNS() - 55000, memory_order_release);
+    atomic_store_explicit(&ctx->last_vblank_time, RGFW_getTimeNS(), memory_order_release);
   }
   return 0;
 }
@@ -183,7 +185,8 @@ u0 schedule_next_render_and_present(frame_pacer_context *const _ctx, u32 _refres
 
   const u64 render_time_estimate = get_average_render_latency(&_ctx->render_timing_data);
   const u64 present_time_estimate = get_average_render_latency(&_ctx->present_timing_data);
-  const u64 driver_latency_margin = 250000; // 250us
+  // TODO: make based on statistics
+  const u64 driver_latency_margin = 450000; // 450us
   const u64 timing_error_margin = 500;      // 0.5us
 
   // GAME_LOGF("render_time_estimate: %llu", render_time_estimate);

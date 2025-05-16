@@ -24,9 +24,9 @@ typedef struct {
 } shared_fbo;
 /* a "ringbuffer of shared textures/fbos" */
 typedef struct {
-  shared_fbo *shared_fbos;
-  usize count_fbos;
-  usize current_index;
+  shared_fbo        *shared_fbos;
+  usize             count_fbos;
+  usize             current_index;
   /* vulkan internal semaphores */
   VkSemaphore       *vk_wait_semaphores;   // signaled by GL, waited by Vk  [image_count] malloc
   VkSemaphore       *vk_signal_semaphores; // signaled by Vk, waited by GL  [image_count] malloc
@@ -69,22 +69,10 @@ typedef struct {
 #endif
 
 } vk_context;
+
+u0      initialize_vulkan_context   (vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h, u32 _rmode);
+usize   bind_vulkan_surface         (vk_context *ctx);
+u0      vulkan_present              (vk_context *ctx);
+u0      destroy_vulkan_context      (vk_context *_context);
 // clang-format on
-/*
-initialize a vulkan surface and context after creating/resizing viewport
-*/
-u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _screen_w, usize _screen_h, u32 _rmode);
-/*
-bind the vulkan surface as a framebuffer object in OpenGL
-returns the buffer index of which buffer opengl will draw to
-*/
-usize bind_vulkan_surface(vk_context *ctx);
-/*
-present the vulkan surface to the window
-*/
-u0 vulkan_present(vk_context *ctx);
-/*
-destroy the entire vulkan context and also free OpenGL fbos, semaphores, buffers etc...
-*/
-u0 destroy_vulkan_context(vk_context *_context);
 #endif // WINDOWING_VULKAN_PRESENT_H_
