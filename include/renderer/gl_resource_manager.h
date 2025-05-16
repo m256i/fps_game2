@@ -385,7 +385,7 @@ static u0 destroy_resource(gl_resource_data *resource_data, gl_resource_handle *
   assert(str_hash_table_get_index(table, resource_data->resource_name) == (*_handle)->hashed_resource_index);
 
   /*
-  implement
+  TODO: implement
   */
 
   resource_table_slot *resource_slot = str_hash_table_at_index(table, (*_handle)->hashed_resource_index);

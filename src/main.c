@@ -60,7 +60,7 @@ bool render(u0) {
   // Sleep(5);
 
   f64 ct = RGFW_getTimeNS();
-  f64 dt = ct - old_time;
+  // f64 dt = ct - old_time;
   old_time = ct;
 
   if (rendered_frames % 300 == 0) {
