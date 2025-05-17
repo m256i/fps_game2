@@ -5,16 +5,16 @@
 
 #ifdef GAME_DEBUG
 
-#define CHECK_VK(result, msg)                                                                                          \
-  if (result != VK_SUCCESS) {                                                                                          \
-    GAME_LOGF("%s (code %d)\n", msg, result);                                                                          \
-    exit(1);                                                                                                           \
+#define CHECK_VK(result, msg)                                                  \
+  if (result != VK_SUCCESS) {                                                  \
+    GAME_LOGF("%s (code %d)\n", msg, result);                                  \
+    exit(1);                                                                   \
   }
 #else
-#define CHECK_VK(result, msg)                                                                                          \
-  do {                                                                                                                 \
-    (u0) result;                                                                                                       \
-    (u0) msg;                                                                                                          \
+#define CHECK_VK(result, msg)                                                  \
+  do {                                                                         \
+    (u0) result;                                                               \
+    (u0) msg;                                                                  \
   } while (0);
 #endif
 

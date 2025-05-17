@@ -21,22 +21,26 @@ typedef struct {
   hash_slot   *data;
 } str_indexer;
 
-u0    str_indexer_initialize      (str_indexer *_map, usize _init_size);
-u0    str_indexer_destroy         (str_indexer *_map);
-u32   str_indexer_get_hash        (str_indexer *_map, const char *_key);
-u32   str_indexer_contains        (const str_indexer *_map, const char *_key);
-u0    str_indexer_erase           (str_indexer *_map, const char *_key);
+u0  str_indexer_initialize  (str_indexer *_map, usize _init_size);
+u0  str_indexer_destroy     (str_indexer *_map);
+u32 str_indexer_get_hash    (str_indexer *_map, const char *_key);
+u32 str_indexer_contains    (const str_indexer *_map, const char *_key);
+u0  str_indexer_erase       (str_indexer *_map, const char *_key);
 
+// clang-format on
 static u0 str_indexer_dbg_print(str_indexer *_map) {
-  puts("string indeces: {");
-  
+  puts("string indices: {");
   for (usize i = 0; i != _map->bucket_count; i++) {
     if (_map->data[i].used) {
-      printf("hash: %u index: %u key: '%s', \n", _map->data[i].hash, _map->data[i].id, _map->data[i].key);
+      printf(
+        "hash: %u index: %u key: '%s', \n",
+        _map->data[i].hash,
+        _map->data[i].id,
+        _map->data[i].key
+      );
     }
   }
   puts("}");
 }
 
-// clang-format on
 #endif // CONTAINERS_STRMAP_H_

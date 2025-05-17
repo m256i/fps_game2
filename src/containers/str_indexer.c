@@ -5,8 +5,8 @@
 #include <util/fnv1a32.h>
 
 static char *portable_strdup(const char *s) {
-  size_t len = strlen(s) + 1;
-  char *copy = malloc(len);
+  size_t len  = strlen(s) + 1;
+  char  *copy = malloc(len);
   if (!copy) return NULL;
   return memcpy(copy, s, len);
 }
@@ -27,11 +27,11 @@ static u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
     while (new_data[idx].used) {
       idx = (idx + 1) % new_capacity;
     }
-    new_data[idx] = *old; /* copies hash, key pointer, id, flags */
+    new_data[idx]         = *old; /* copies hash, key pointer, id, flags */
     new_data[idx].deleted = false;
   }
   free(t->data);
-  t->data = new_data;
+  t->data         = new_data;
   t->bucket_count = new_capacity;
 }
 
@@ -42,8 +42,12 @@ static usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
   for (usize probes = 0; probes < t->bucket_count; probes++) {
     hash_slot *slot = &t->data[idx];
 
-    if (!slot->used && !slot->deleted) { return idx; /* new slot */ }
-    if (slot->used && slot->hash == hash && strcmp(slot->key, key) == 0) { return idx; /* existing key */ }
+    if (!slot->used && !slot->deleted) {
+      return idx; /* new slot */
+    }
+    if (slot->used && slot->hash == hash && strcmp(slot->key, key) == 0) {
+      return idx; /* existing key */
+    }
     idx = (idx + 1) % t->bucket_count;
   }
   GAME_CRITICALF("str_indexer full!");
@@ -52,9 +56,9 @@ static usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
 
 u0 str_indexer_initialize(str_indexer *_map, usize _init_size) {
   _map->bucket_count = _init_size;
-  _map->used_count = 0;
-  _map->next_id = 0;
-  _map->data = NULL;
+  _map->used_count   = 0;
+  _map->next_id      = 0;
+  _map->data         = NULL;
   if (_init_size == 0) return;
   _map->data = calloc(_init_size, sizeof *_map->data);
   if (!_map->data) {
@@ -66,34 +70,38 @@ u0 str_indexer_initialize(str_indexer *_map, usize _init_size) {
 u0 str_indexer_destroy(str_indexer *_map) {
   if (!_map->data) return;
   for (usize i = 0; i < _map->bucket_count; i++) {
-    if (_map->data[i].used && _map->data[i].key) { free(_map->data[i].key); }
+    if (_map->data[i].used && _map->data[i].key) {
+      free(_map->data[i].key);
+    }
   }
   free(_map->data);
-  _map->data = NULL;
+  _map->data         = NULL;
   _map->bucket_count = _map->used_count = 0;
-  _map->next_id = 0;
+  _map->next_id                         = 0;
 }
 
 u32 str_indexer_get_hash(str_indexer *_map, const char *_key) {
   assert(_map->bucket_count > 0);
 
   /* resize if load > 0.7 */
-  if ((f64)(_map->used_count + 1) > _map->bucket_count * 0.7) { str_indexer_resize(_map, _map->bucket_count * 2); }
+  if ((f64)(_map->used_count + 1) > _map->bucket_count * 0.7) {
+    str_indexer_resize(_map, _map->bucket_count * 2);
+  }
 
-  u32 hash = fnv32_hash(_key);
-  usize idx = str_indexer_probe_slot(_map, hash, _key);
+  u32        hash = fnv32_hash(_key);
+  usize      idx  = str_indexer_probe_slot(_map, hash, _key);
   hash_slot *slot = &_map->data[idx];
 
   if (!slot->used) {
     /* fresh insert */
     if (slot->deleted) slot->deleted = false;
     slot->hash = hash;
-    slot->key = portable_strdup(_key);
+    slot->key  = portable_strdup(_key);
     if (!slot->key) {
       GAME_CRITICALF("OOM");
       exit(1);
     }
-    slot->id = _map->next_id++;
+    slot->id   = _map->next_id++;
     slot->used = true;
     _map->used_count++;
   }
@@ -101,10 +109,12 @@ u32 str_indexer_get_hash(str_indexer *_map, const char *_key) {
 }
 
 u32 str_indexer_contains(const str_indexer *_map, const char *key) {
-  if (_map->used_count == 0) { return UINT32_MAX; }
+  if (_map->used_count == 0) {
+    return UINT32_MAX;
+  }
 
-  u32 hash = fnv32_hash(key);
-  usize idx = str_indexer_probe_slot(_map, hash, key);
+  u32              hash = fnv32_hash(key);
+  usize            idx  = str_indexer_probe_slot(_map, hash, key);
   const hash_slot *slot = &_map->data[idx];
 
   if (slot->used && slot->hash == hash && strcmp(slot->key, key) == 0) {
@@ -116,15 +126,15 @@ u32 str_indexer_contains(const str_indexer *_map, const char *key) {
 
 u0 str_indexer_erase(str_indexer *_map, const char *_key) {
   assert(_map->bucket_count > 0);
-  u32 hash = fnv32_hash(_key);
-  usize idx = (usize)(hash % _map->bucket_count);
+  u32   hash = fnv32_hash(_key);
+  usize idx  = (usize)(hash % _map->bucket_count);
   for (usize probes = 0; probes < _map->bucket_count; probes++) {
     hash_slot *slot = &_map->data[idx];
     if (!slot->used && !slot->deleted) return;
     if (slot->used && slot->hash == hash && strcmp(slot->key, _key) == 0) {
       free(slot->key);
-      slot->key = NULL;
-      slot->used = false;
+      slot->key     = NULL;
+      slot->used    = false;
       slot->deleted = true;
       _map->used_count--;
       return;

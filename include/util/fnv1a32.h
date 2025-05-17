@@ -4,19 +4,19 @@
 #include <common.h>
 #include <string.h>
 
-#define FNV_OFFSET (u32)2166136261u
-#define FNV_PRIME (u32)16777619u
+#define FNV_OFFSET            (u32)2166136261u
+#define FNV_PRIME             (u32)16777619u
 #define FNV1A_HASH_STEP(h, c) (((u8)(c) ^ (u32)(h)) * FNV_PRIME)
 
-#define HASH_STR_1(s) FNV1A_HASH_STEP(FNV_OFFSET, s[0])
-#define HASH_STR_2(s) FNV1A_HASH_STEP(HASH_STR_1(s), s[1])
-#define HASH_STR_3(s) FNV1A_HASH_STEP(HASH_STR_2(s), s[2])
-#define HASH_STR_4(s) FNV1A_HASH_STEP(HASH_STR_3(s), s[3])
-#define HASH_STR_5(s) FNV1A_HASH_STEP(HASH_STR_4(s), s[4])
-#define HASH_STR_6(s) FNV1A_HASH_STEP(HASH_STR_5(s), s[5])
-#define HASH_STR_7(s) FNV1A_HASH_STEP(HASH_STR_6(s), s[6])
-#define HASH_STR_8(s) FNV1A_HASH_STEP(HASH_STR_7(s), s[7])
-#define HASH_STR_9(s) FNV1A_HASH_STEP(HASH_STR_8(s), s[8])
+#define HASH_STR_1(s)  FNV1A_HASH_STEP(FNV_OFFSET, s[0])
+#define HASH_STR_2(s)  FNV1A_HASH_STEP(HASH_STR_1(s), s[1])
+#define HASH_STR_3(s)  FNV1A_HASH_STEP(HASH_STR_2(s), s[2])
+#define HASH_STR_4(s)  FNV1A_HASH_STEP(HASH_STR_3(s), s[3])
+#define HASH_STR_5(s)  FNV1A_HASH_STEP(HASH_STR_4(s), s[4])
+#define HASH_STR_6(s)  FNV1A_HASH_STEP(HASH_STR_5(s), s[5])
+#define HASH_STR_7(s)  FNV1A_HASH_STEP(HASH_STR_6(s), s[6])
+#define HASH_STR_8(s)  FNV1A_HASH_STEP(HASH_STR_7(s), s[7])
+#define HASH_STR_9(s)  FNV1A_HASH_STEP(HASH_STR_8(s), s[8])
 #define HASH_STR_10(s) FNV1A_HASH_STEP(HASH_STR_9(s), s[9])
 #define HASH_STR_11(s) FNV1A_HASH_STEP(HASH_STR_10(s), s[10])
 #define HASH_STR_12(s) FNV1A_HASH_STEP(HASH_STR_11(s), s[11])
@@ -45,8 +45,8 @@
 #define FNV1A32_CSTR_LEN(s, len) HASH_STR_##len(s)
 
 u32 fnv32_hash(const char *_str) {
-  const usize len = strnlen_s(_str, 128);
-  u32 hash = FNV_OFFSET;
+  const usize len  = strnlen_s(_str, 128);
+  u32         hash = FNV_OFFSET;
   for (usize i = 0; i != len; i++) {
     hash = ((u8)_str[i] ^ hash) * FNV_PRIME;
   }

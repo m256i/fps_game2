@@ -68,7 +68,7 @@ executable(output_name,
   dependencies : dependencies,
   include_directories : headers,
   c_args : c_compiler_args,
-  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lopengl32', '-lddraw', '-ldxguid', '-ldxgi'],
+  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lole32', '-lopengl32', '-ltdh', '-ldxguid', '-ldxgi'],
   install : true,
   install_dir : output_dir)
 

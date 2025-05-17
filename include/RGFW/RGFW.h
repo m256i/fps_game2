@@ -1360,6 +1360,7 @@ RGFWDEF i32 RGFW_init(void); /*!< is called by default when the first window is 
 RGFWDEF void RGFW_deinit(void); /*!< is called by default when the last open window is closed */
 
 RGFWDEF double RGFW_getTime(void); /*!< get time in seconds since RGFW_setTime, which ran when the first window is open  */
+RGFWDEF u64 RGFW_getTimerOffsetRaw(void); /*!< get timer offset to synchronize external clocks to RGFW */
 RGFWDEF u64 RGFW_getTimeNS(void); /*!< get time in nanoseconds RGFW_setTime, which ran when the first window is open */
 RGFWDEF void RGFW_sleep(u64 milisecond); /*!< sleep for a set time */
 RGFWDEF void RGFW_setTime(double time); /*!< set timer in seconds */
@@ -1604,6 +1605,10 @@ void RGFW_sendDebugInfo(RGFW_debugType type, RGFW_errorCode err, RGFW_debugConte
 u64 RGFW_timerOffset = 0;
 void RGFW_setTime(double time) {
     RGFW_timerOffset = RGFW_getTimerValue() - (u64)(time * (double)RGFW_getTimerFreq());
+}
+
+u64 RGFW_getTimerOffsetRaw(void) {
+  return RGFW_timerOffset;
 }
 
 double RGFW_getTime(void) {
