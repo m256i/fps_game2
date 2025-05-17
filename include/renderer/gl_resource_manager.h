@@ -311,7 +311,7 @@ typedef struct {
 /* global instance because gl is also shared state */
 static gl_resource_manager_class gl_resource_manager;
 
-static u0 request_resource(
+static u0 request_gl_resource(
   const gl_resource_data *const resource_data,
   gl_resource_handle           *_handle
 ) {
@@ -375,6 +375,7 @@ static u0 request_resource(
       *(gl_resource_handle *)
         str_hash_table_at(handle_pointer_table, resource_data->resource_name);
 
+    assert(*_handle);
     GAME_LOGF(
       "handle: index %u internal handle: %u",
       (*_handle)->hashed_resource_index,
@@ -389,6 +390,7 @@ static u0 request_resource(
     return;
   }
 
+  GAME_LOGF("creating new gl object");
   GLuint gl_handle = 0;
 
   /* resource does not yet exists */
@@ -458,7 +460,7 @@ static u0 request_resource(
   (*_handle)->internal_handle = gl_handle;
 }
 
-static u0 destroy_resource(
+static u0 destroy_gl_resource(
   const gl_resource_data *const resource_data,
   gl_resource_handle           *_handle
 ) {
