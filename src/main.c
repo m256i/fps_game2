@@ -118,6 +118,12 @@ int main() {
 
   request_resource(&rd, &rh);
 
+  destroy_resource(&rd, &rh);
+  destroy_resource(&rd, &rh);
+  destroy_resource(&rd, &rh1);
+
+  return 0;
+
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
 
   glCreateVertexArrays(1, &vao);

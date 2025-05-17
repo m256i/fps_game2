@@ -31,6 +31,9 @@ typedef struct {
 } vec3;
 
 /*
+TODO: fix fucked up PROC names
+*/
+/*
 ONLY USE IN NON-PERFORMANCE-CRITICAL SCENARIOS FOR CLEANER SYNTAX
 */
 typedef vec3          (*VEC3_ADDPROC)(const vec3 *const, const vec3 *const);

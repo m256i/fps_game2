@@ -38,6 +38,18 @@ typedef float       f32;
 typedef double      f64;
 typedef long double f87;
 
+/*
+if attributed to a callback signalizes that the callback may get called
+asynchronously. so:
+
+GASYNC_CALLBACK bool my_callback(u0* data) {
+  ... modifies external state unsynchronized ...
+}
+
+will almost certainly lead to a race condition
+*/
+#define GASYNC_CALLBACK
+
 #ifdef GAME_DEBUG
 #define GAME_LOGF(...)      log_info(__VA_ARGS__)
 #define GAME_WARNF(...)     log_warn(__VA_ARGS__)

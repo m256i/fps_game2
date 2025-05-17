@@ -173,10 +173,12 @@ static u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   }
   case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
     free(_data->desc.vertex_buffer.vertex_attributes);
+    _data->desc.vertex_buffer.vertex_attributes = NULL;
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
     free(_data->desc.frame_buffer.attachements);
+    _data->desc.frame_buffer.attachements = NULL;
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_SSBO: {
@@ -197,7 +199,7 @@ static u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   }
   default: {
     GAME_CRITICALF(
-      "unknown creation info passed to create_persistent_resource_data"
+      "unknown creation info passed to destroy_persistent_resource_data"
     );
     exit(1);
     break;
@@ -302,20 +304,30 @@ typedef struct {
 
 typedef struct {
   str_hash_table table;
+  str_hash_table handle_pointers;
   bool           initialized;
 } gl_resource_manager_class;
 
 /* global instance because gl is also shared state */
 static gl_resource_manager_class gl_resource_manager;
 
-static u0
-request_resource(gl_resource_data *resource_data, gl_resource_handle *_handle) {
+static u0 request_resource(
+  const gl_resource_data *const resource_data,
+  gl_resource_handle           *_handle
+) {
   static str_hash_table *const table = &gl_resource_manager.table;
+  static str_hash_table *const handle_pointer_table =
+    &gl_resource_manager.handle_pointers;
 
   /* initialize global resource manager once */
   if (!gl_resource_manager.initialized) {
     GAME_LOGF("creating gl_resource_manager");
     str_hash_table_initialize(table, sizeof(resource_table_slot), 10);
+    str_hash_table_initialize(
+      handle_pointer_table,
+      sizeof(gl_resource_handle),
+      10
+    );
     gl_resource_manager.initialized = true;
   }
 
@@ -354,12 +366,24 @@ request_resource(gl_resource_data *resource_data, gl_resource_handle *_handle) {
       resource_data->resource_name
     );
     /* handle NULL but resource exists already */
-    *_handle = malloc(sizeof **_handle);
-    (*_handle)->hashed_resource_index =
-      str_hash_table_get_index(table, resource_data->resource_name);
-    resource_table_slot *resource_slot =
+    assert(str_hash_table_contains(
+      handle_pointer_table,
+      resource_data->resource_name
+    ));
+
+    *_handle =
+      *(gl_resource_handle *)
+        str_hash_table_at(handle_pointer_table, resource_data->resource_name);
+
+    GAME_LOGF(
+      "handle: index %u internal handle: %u",
+      (*_handle)->hashed_resource_index,
+      (*_handle)->internal_handle
+    );
+
+    /* handle already exists so just set it */
+    resource_table_slot *const resource_slot =
       str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
-    (*_handle)->internal_handle = resource_slot->internal_handle;
     /* new client, so increment refcount */
     ++resource_slot->ref_count;
     return;
@@ -408,7 +432,20 @@ request_resource(gl_resource_data *resource_data, gl_resource_handle *_handle) {
   }
   }
 
-  *_handle                          = malloc(sizeof **_handle);
+  /* make sure handle pointer table was properly cleared before */
+  assert(
+    !str_hash_table_contains(handle_pointer_table, resource_data->resource_name)
+  );
+
+  gl_resource_handle new_handle = malloc(sizeof **_handle);
+
+  str_hash_table_insert(
+    handle_pointer_table,
+    resource_data->resource_name,
+    &new_handle
+  );
+
+  *_handle                          = new_handle;
   (*_handle)->hashed_resource_index = str_hash_table_insert(
     table,
     resource_data->resource_name,
@@ -421,21 +458,27 @@ request_resource(gl_resource_data *resource_data, gl_resource_handle *_handle) {
   (*_handle)->internal_handle = gl_handle;
 }
 
-static u0
-destroy_resource(gl_resource_data *resource_data, gl_resource_handle *_handle) {
+static u0 destroy_resource(
+  const gl_resource_data *const resource_data,
+  gl_resource_handle           *_handle
+) {
   static str_hash_table *const table = &gl_resource_manager.table;
+  static str_hash_table *const handle_pointer_table =
+    &gl_resource_manager.handle_pointers;
 
   assert(gl_resource_manager.initialized);
   GAME_LOGF("destroy_resource() on %s", resource_data->resource_name);
+
+  if (!*_handle) {
+    GAME_LOGF("handle already NULL");
+    return;
+  }
+
   assert(str_hash_table_contains(table, resource_data->resource_name));
   assert(
     str_hash_table_get_index(table, resource_data->resource_name) ==
     (*_handle)->hashed_resource_index
   );
-
-  /*
-  TODO: implement
-  */
 
   resource_table_slot *resource_slot =
     str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
@@ -443,13 +486,36 @@ destroy_resource(gl_resource_data *resource_data, gl_resource_handle *_handle) {
   --resource_slot->ref_count;
 
   if (resource_slot->ref_count == 0) {
-    /*
-    if (!esource_slot->postpone_deletion_cb ||
-    resource_slot->postpone_deletion_cb()) { delete gl object and our handles to
-    it
+    /* TODO: implement deletion postpone callback */
+    if (true) {
+      /*
+      TODO: implement OpenGL buffer deletion logic
+      */
+      /* free the main table slot */
+      destroy_persistent_resource_data(&resource_slot->resource_data);
+      str_hash_table_erase(table, resource_data->resource_name);
+
+      assert(str_hash_table_contains(
+        handle_pointer_table,
+        resource_data->resource_name
+      ));
+
+      free(*_handle);
+      GAME_LOGF("freed handle data");
+      str_hash_table_erase(handle_pointer_table, resource_data->resource_name);
+      GAME_LOGF("resource fully destroyed");
+    } else {
+      /*  TODO: summon a low prio thread that periodically (every 20 seconds or
+      so checks all of the callbacks) and pushes the ones that returned true
+      into a queue for the main thread to destroy them
+      */
+      GAME_LOGF(
+        "destroy_resource() on %s moved its data to postpone list!",
+        resource_data->resource_name
+      );
     }
-    */
   }
+  *_handle = NULL;
 }
 
 #endif // RENDERER_GL_RESOURCE_MANAGER_H_
