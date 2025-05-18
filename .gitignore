@@ -2,6 +2,7 @@
 /.vscode
 /build
 /compiled
+/tools
 /game_logs.txt
 /*.txt
 /output.txt

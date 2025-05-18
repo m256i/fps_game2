@@ -16,7 +16,9 @@
 #include <windowing/frame_pacer.h>
 
 #include <containers/str_hash_table.h>
-#include <renderer/gl_resource_manager.h>
+// #include <renderer/gl_resource_manager.h>
+
+#include <util/dbg/strace.h>
 
 const char *vertex_shader_src =
   "#version 460 core\n"
@@ -76,7 +78,10 @@ bool render(u0) {
   return true;
 }
 
-int main() {
+int main(u0) {
+
+  setup_stacktrace();
+
   FILE *lf = fopen("./game_logs.txt", "w");
   if (!lf) {
     puts("CRITICAL ERROR: unable to open log-file! exiting");
@@ -85,44 +90,47 @@ int main() {
   log_add_fp(lf, LOG_TRACE);
   GAME_LOGF("initialising game client version %s", GAME_CLIENT_VER_STR);
 
+  volatile int *p = NULL;
+  *p              = 0xDEADBEEF;
+
   // unit_test_mathlib();
 
   create_gl_context();
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
-  // clang-format off
-  const gl_resource_data rd = (gl_resource_data){
-    .desc.vertex_buffer = {
-      .creation_info_type = RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
-      .buffer_usage       = GL_STATIC_DRAW,
-      .vertex_attributes  = (vertex_attribute_info[]){
-        (vertex_attribute_info){
-          .attribute_type = GL_FLOAT, 
-          .attribute_count = 3, 
-          .attribute_index = 0}
-        },
-      .num_attributes     = 1,
-      .size               = 1000},
-    .resource_name = "my_vertex_buffer0"
-  };
-  // clang-format on
+  // // clang-format off
+  // const gl_resource_data rd = (gl_resource_data){
+  //   .desc.vertex_buffer = {
+  //     .creation_info_type = RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
+  //     .buffer_usage       = GL_STATIC_DRAW,
+  //     .vertex_attributes  = (vertex_attribute_info[]){
+  //       (vertex_attribute_info){
+  //         .attribute_type = GL_FLOAT,
+  //         .attribute_count = 3,
+  //         .attribute_index = 0}
+  //       },
+  //     .num_attributes     = 1,
+  //     .size               = 1000},
+  //   .resource_name = "my_vertex_buffer0"
+  // };
+  // // clang-format on
 
-  gl_resource_handle rh  = {0};
-  gl_resource_handle rh1 = {0};
+  // gl_resource_handle rh  = {0};
+  // gl_resource_handle rh1 = {0};
 
-  request_gl_resource(&rd, &rh);
-  request_gl_resource(&rd, &rh1);
+  // request_gl_resource(&rd, &rh);
+  // request_gl_resource(&rd, &rh1);
 
-  printf("rh internal %u\n", rh->internal_handle);
-  printf("rh index %u\n", rh->hashed_resource_index);
+  // printf("rh internal %u\n", rh->internal_handle);
+  // printf("rh index %u\n", rh->hashed_resource_index);
 
-  request_gl_resource(&rd, &rh);
+  // request_gl_resource(&rd, &rh);
 
-  destroy_gl_resource(&rd, &rh);
-  destroy_gl_resource(&rd, &rh);
-  destroy_gl_resource(&rd, &rh1);
+  // destroy_gl_resource(&rd, &rh);
+  // destroy_gl_resource(&rd, &rh);
+  // destroy_gl_resource(&rd, &rh1);
 
-  request_gl_resource(&rd, &rh);
+  // request_gl_resource(&rd, &rh);
   return 0;
 
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};

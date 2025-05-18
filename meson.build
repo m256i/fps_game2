@@ -5,7 +5,7 @@ project('CHANGEME', ['c'],
 
 # DO NOT change variable names; AMCA relies on these.
 output_name = 'a'
-output_dir = '../compiled'  # Relative to meson.build location
+output_dir = '..\\compiled'  # Relative to meson.build location
 build_dir_where = 'build'  # Relative to meson.build location
 
 # Compiler arguments
@@ -19,7 +19,7 @@ c_compiler_args = [
   '-march=native',
   '-mtune=native',
   '-fomit-frame-pointer',
-  '-ffast-math'
+  '-ffast-math',
 ]
 
 # Normalize paths
@@ -68,9 +68,16 @@ executable(output_name,
   dependencies : dependencies,
   include_directories : headers,
   c_args : c_compiler_args,
-  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lole32', '-lopengl32', '-ltdh', '-ldxguid', '-ldxgi'],
+  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lole32', '-lopengl32', '-ltdh', '-ldxguid', '-ldxgi', '-ldbghelp'],
   install : true,
   install_dir : output_dir)
 
 # Print build context
 message('\033[2K\r\nsource files: \n   ', '   '.join(source_files), '\noutputs to:\n   ', output_dir + output_name, '\n')
+
+# # generate .pdb file
+# run_command('cv2pdb64', '-C', output_dir + '\\' + output_name + '.exe', check : true)
+# run_command('cv2pdb64', '-C', '..\\' + build_dir_where + '\\' + output_name + '.exe', check : true)
+
+# # strip dwarf symbols
+# run_command('strip', '-g', output_name + '.exe', check : true)

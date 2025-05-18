@@ -6,29 +6,38 @@
 
 #include <glad/glad.h>
 #include <string.h>
-#include <util/mmcmp.h>
 
-#define MAXIMUM_RESOURCE_NAME_STRLEN 0xff
+#include <util/mmcmp.h>
+#include <util/array_copy.h>
+
+#define MAX_RESOURCE_NAME_STRLEN 0xff
+#define MAX_RESOURCE_PATH_STRLEN 0xff
 
 typedef enum {
   RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER,
+  RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER,
-  RESOURCE_CREATION_INFO_TYPE_SSBO,
   RESOURCE_CREATION_INFO_TYPE_SHADER,
+  RESOURCE_CREATION_INFO_TYPE_SHADER_STORAGE_BUFFER,
+  RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_TEXTURE,
   RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE,
+  RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER,
 } gl_resource_ci_type;
 
 typedef struct {
   /* this NEEDS to be the first element */
-  u32     creation_info_type;
-  GLenum *attachements;
-  u32     width;
-  u32     height;
-  GLenum  format;
-  usize   num_attachements;
+  u32 creation_info_type;
 } frame_buffer_creation_info;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32    creation_info_type;
+  GLenum internal_format;
+  usize  width;
+  usize  height;
+} render_buffer_creation_info;
 
 typedef struct {
   GLenum  attribute_type;
@@ -39,18 +48,105 @@ typedef struct {
 typedef struct {
   /* this NEEDS to be the first element */
   u32                    creation_info_type;
+  /* NOT mutable */
   vertex_attribute_info *vertex_attributes;
-  u32                    size;
   usize                  num_attributes;
+  u32                    raw_size;
   GLenum                 buffer_usage;
+  /* mutable */
+  u8                    *vertex_data;
 } vertex_buffer_creation_info;
 
 typedef struct {
   /* this NEEDS to be the first element */
   u32     creation_info_type;
   GLenum  index_type;
-  GLsizei size;
+  GLsizei index_count;
 } index_buffer_creation_info;
+
+typedef struct {
+  GLenum      type;
+  GLuint      size;
+  /* NOT mutable */
+  const char *name;
+} shader_input_attribute;
+
+typedef struct {
+  GLenum      type;
+  GLuint      size;
+  /* NOT mutable */
+  const char *name;
+  bool        optional;
+} shader_uniform_attribute;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32                       creation_info_type;
+  /* all NOT mutable */
+  char                     *vertex_path;
+  char                     *fragment_path;
+  char                     *geo_path;
+  char                     *tesselation_path;
+  shader_input_attribute   *input_attributes;
+  usize                     num_inputs;
+  shader_uniform_attribute *uniform_attributes;
+  usize                     num_uniforms;
+  GLuint                   *ubo_binding_points;
+  usize                     num_ubos;
+  GLuint                   *ssbo_binding_points;
+  usize                     num_ssbos;
+  GLenum                   *output_attachements;
+  usize                     num_outputs;
+} shader_creation_info;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32 creation_info_type;
+} ssbo_creation_info;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32 creation_info_type;
+} ubo_creation_info;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32     creation_info_type;
+  /* NOT mutable */
+  GLenum *attachements;
+  usize   num_attachements;
+  u32     width;
+  u32     height;
+  GLenum  internal_format;
+  GLenum  format;
+  GLenum  wrap_mode;
+  /* mutable */
+  u8     *image_data;
+} texture_creation_info;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32    creation_info_type;
+  f32    scale;
+  GLenum wrap_mode;
+  bool   compress;
+  /* NOT mutable */
+  char  *image_path;
+  /* readonly (filled by resource manager on creation)*/
+  u32    width;
+  u32    height;
+  GLenum internal_format;
+  GLenum format;
+} image_texture_creation_info;
+
+typedef struct {
+  /* this NEEDS to be the first element */
+  u32    creation_info_type;
+  usize  byte_size;
+  u8    *data;
+  GLenum usage;
+} pixel_buffer_creation_info;
+
 /*
 this exists so we can access the u32 creation_info_type of every possible info
 type without knowing which one it is beforehand
@@ -61,92 +157,139 @@ typedef struct {
 } dummy_creation_info;
 
 /*
+signature of the postpone callback
+*/
+typedef GASYNC_CALLBACK bool (*POSTPONE_PROC)(u0 *);
+
+/*
 passing this as an identifier to request_resource()
 */
 typedef struct {
   union creation_info {
     dummy_creation_info         dummy;
     frame_buffer_creation_info  frame_buffer;
+    render_buffer_creation_info render_buffer;
     vertex_buffer_creation_info vertex_buffer;
     index_buffer_creation_info  index_buffer;
+    shader_creation_info        shader;
+    ssbo_creation_info          ssbo;
+    ubo_creation_info           ubo;
+    texture_creation_info       texture;
+    image_texture_creation_info image_texture;
+    pixel_buffer_creation_info  pixel_buffer;
     /* TODO: implement all... */
   } desc;
-  char *resource_name;
+  char         *resource_name;
+  /*
+  if NULL: do not postpone deletion after refcount 0 else:
+  return TRUE from the callback to signal deletion
+  */
+  POSTPONE_PROC postpone_callback;
+  u0           *impl_storage;
 } gl_resource_data;
+
 /*
-add postpone_deletion callback
+TODO: implement postpone_deletion callback
 */
 
 /* deep copy function for gl_resource_data since clients might pass in temporary
  * structs and arrays */
 static gl_resource_data
 create_persistent_resource_data(const gl_resource_data *const _temp) {
-  gl_resource_data out;
+  gl_resource_data out = {0};
   GAME_LOGF("doig deep copy on resource %s", _temp->resource_name);
 
   /* copy the name into a persistent buff */
-  usize temp_name_len =
-    strnlen_s(_temp->resource_name, MAXIMUM_RESOURCE_NAME_STRLEN);
-  GAME_LOGF("name strnlen: %zu", temp_name_len);
+  out.resource_name =
+    strnclone_s(_temp->resource_name, MAX_RESOURCE_NAME_STRLEN);
 
-  out.resource_name = malloc(temp_name_len + 1);
-  strncpy_s(
-    out.resource_name,
-    temp_name_len + 1,
-    _temp->resource_name,
-    MAXIMUM_RESOURCE_NAME_STRLEN
-  );
+  /* important, only shallow copy since our handle handles memory */
+  out.impl_storage = _temp->impl_storage;
 
   GAME_LOGF("copied name: %s", out.resource_name);
 
   switch (_temp->desc.dummy.creation_info_type) {
   /* first handle the cases where no custom deep copy is needed */
-  case RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER: {
+  case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_SHADER_STORAGE_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER:        {
     memcpy(&out.desc, &_temp->desc, sizeof out.desc);
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
-    usize attributes_byte_size =
-      sizeof *_temp->desc.vertex_buffer.vertex_attributes *
-      _temp->desc.vertex_buffer.num_attributes;
-    GAME_LOGF("byte_size of vertex attriubte array: %zu", attributes_byte_size);
     memcpy(&out.desc, &_temp->desc, sizeof out.desc);
-    out.desc.vertex_buffer.vertex_attributes = malloc(attributes_byte_size);
-    memcpy(
-      out.desc.vertex_buffer.vertex_attributes,
+    out.desc.vertex_buffer.vertex_attributes = memclone(
       _temp->desc.vertex_buffer.vertex_attributes,
-      attributes_byte_size
+      sizeof *_temp->desc.vertex_buffer.vertex_attributes *
+        _temp->desc.vertex_buffer.num_attributes
     );
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
-    /* deep copy the attachements */
-    usize attachements_byte_size =
-      sizeof *_temp->desc.frame_buffer.attachements *
-      _temp->desc.frame_buffer.num_attachements;
-    memcpy(&out.desc, &_temp->desc, sizeof out.desc);
-    out.desc.frame_buffer.attachements = malloc(attachements_byte_size);
-    memcpy(
-      out.desc.frame_buffer.attachements,
-      _temp->desc.frame_buffer.attachements,
-      attachements_byte_size
-    );
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_SSBO: {
-    /* implement ...*/
+    /* persistant data doesnt need the buffer */
+    out.desc.vertex_buffer.vertex_data = NULL;
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_SHADER: {
-    /* implement ...*/
+    memcpy(&out.desc, &_temp->desc, sizeof out.desc);
+    const shader_creation_info *inptr  = &_temp->desc.shader;
+    shader_creation_info       *outptr = &out.desc.shader;
+    outptr->vertex_path =
+      strnclone_s(inptr->vertex_path, MAX_RESOURCE_PATH_STRLEN);
+    outptr->fragment_path =
+      strnclone_s(inptr->fragment_path, MAX_RESOURCE_PATH_STRLEN);
+
+    if (inptr->geo_path) {
+      outptr->geo_path = strnclone_s(inptr->geo_path, MAX_RESOURCE_PATH_STRLEN);
+    }
+
+    if (inptr->tesselation_path) {
+      outptr->tesselation_path =
+        strnclone_s(inptr->tesselation_path, MAX_RESOURCE_PATH_STRLEN);
+    }
+
+    outptr->input_attributes = memclone(
+      inptr->input_attributes,
+      inptr->num_inputs * sizeof *inptr->input_attributes
+    );
+    outptr->uniform_attributes = memclone(
+      inptr->uniform_attributes,
+      inptr->num_uniforms * sizeof *inptr->uniform_attributes
+    );
+    outptr->ubo_binding_points = memclone(
+      inptr->ubo_binding_points,
+      inptr->num_ubos * sizeof *inptr->ubo_binding_points
+    );
+    outptr->ssbo_binding_points = memclone(
+      inptr->ssbo_binding_points,
+      inptr->num_ssbos * sizeof *inptr->ssbo_binding_points
+    );
+    outptr->output_attachements = memclone(
+      inptr->output_attachements,
+      inptr->num_outputs * sizeof *inptr->output_attachements
+    );
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
-    /* implement ...*/
+    memcpy(&out.desc, &_temp->desc, sizeof out.desc);
+    out.desc.texture.image_data   = NULL;
+    out.desc.texture.attachements = memclone(
+      _temp->desc.texture.attachements,
+      _temp->desc.texture.num_attachements *
+        sizeof *_temp->desc.texture.attachements
+    );
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
-    /* implement ...*/
+    memcpy(&out.desc, &_temp->desc, sizeof out.desc);
+    out.desc.image_texture.image_path = strnclone_s(
+      _temp->desc.image_texture.image_path,
+      MAX_RESOURCE_PATH_STRLEN
+    );
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER: {
+    memcpy(&out.desc, &_temp->desc, sizeof out.desc);
+    out.desc.pixel_buffer.data = NULL;
     break;
   }
   default: {
@@ -168,7 +311,12 @@ static u0 destroy_persistent_resource_data(gl_resource_data *_data) {
 
   switch (_data->desc.dummy.creation_info_type) {
   /* first handle the cases where no custom deep copy is needed */
-  case RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER: {
+  case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_SHADER_STORAGE_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER:
+  case RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER:        {
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
@@ -176,25 +324,25 @@ static u0 destroy_persistent_resource_data(gl_resource_data *_data) {
     _data->desc.vertex_buffer.vertex_attributes = NULL;
     break;
   }
-  case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
-    free(_data->desc.frame_buffer.attachements);
-    _data->desc.frame_buffer.attachements = NULL;
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_SSBO: {
-    /* implement ...*/
-    break;
-  }
   case RESOURCE_CREATION_INFO_TYPE_SHADER: {
-    /* implement ...*/
+    shader_creation_info *ptr = &_data->desc.shader;
+    free(ptr->vertex_path);
+    free(ptr->fragment_path);
+    free(ptr->geo_path);
+    free(ptr->tesselation_path);
+    free(ptr->input_attributes);
+    free(ptr->uniform_attributes);
+    free(ptr->ubo_binding_points);
+    free(ptr->ssbo_binding_points);
+    free(ptr->output_attachements);
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
-    /* implement ...*/
+    free(_data->desc.texture.attachements);
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
-    /* implement ...*/
+    free(_data->desc.image_texture.image_path);
     break;
   }
   default: {
@@ -266,7 +414,7 @@ static bool resource_data_eq(
 
     break;
   }
-  case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
+  case RESOURCE_CREATION_INFO_TYPE_COMPUTE_TEXTURE: {
 
     break;
   }
@@ -310,6 +458,147 @@ typedef struct {
 
 /* global instance because gl is also shared state */
 static gl_resource_manager_class gl_resource_manager;
+
+static GLuint create_gl_fbo(gl_resource_data *const resource_data) {
+  GLuint handle = 0;
+  glGenFramebuffers(1, &handle);
+  return handle;
+}
+
+static u0 destroy_gl_fbo(
+  gl_resource_data *const resource_data,
+  gl_resource_handle      _handle
+) {
+  glDeleteFramebuffers(1, &_handle->internal_handle);
+}
+
+static usize gl_type_to_size(GLenum _gl_type) {
+  switch (_gl_type) {
+  case GL_UNSIGNED_BYTE:  return sizeof(GLubyte);
+  case GL_BYTE:           return sizeof(GLbyte);
+  case GL_UNSIGNED_SHORT: return sizeof(GLushort);
+  case GL_SHORT:          return sizeof(GLshort);
+  case GL_UNSIGNED_INT:   return sizeof(GLuint);
+  case GL_INT:            return sizeof(GLint);
+  case GL_FIXED:          return sizeof(GLfixed);
+  case GL_FLOAT:          return sizeof(GLfloat);
+  case GL_HALF_FLOAT:     return sizeof(GLhalf);
+  case GL_DOUBLE:         return sizeof(GLdouble);
+  default:                assert(false);
+  }
+}
+
+static GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
+  GLuint vao, vbo;
+  glCreateVertexArrays(1, &vao);
+
+  _resource_data->impl_storage            = malloc(sizeof(vao));
+  *(GLuint *)_resource_data->impl_storage = vao;
+
+  glBindVertexArray(vao);
+  glCreateBuffers(1, &vbo);
+  glNamedBufferData(
+    vbo,
+    _resource_data.desc.vertex_buffer.raw_size,
+    _resource_data.desc.vertex_buffer.vertex_data,
+    _resource_data.desc.vertex_buffer.buffer_usage
+  );
+
+  GLint  offset = 0;
+  GLuint stride = 0;
+
+  for (usize i = 0; i < _resource_data.desc.vertex_buffer.num_attributes; i++) {
+    vertex_attribute_info *a_info =
+      _resource_data.desc.vertex_buffer.vertex_attributes[i];
+
+    stride += gl_type_to_size(a_info->attribute_type) * a_info->attribute_count;
+  }
+
+  glVertexArrayVertexBuffer(vao, 0, vbo, 0, stride);
+
+  for (usize i = 0; i < _resource_data.desc.vertex_buffer.num_attributes; i++) {
+    vertex_attribute_info *a_info =
+      _resource_data.desc.vertex_buffer.vertex_attributes[i];
+
+    glEnableVertexArrayAttrib(vao, a_info->attribute_index);
+    glVertexArrayAttribFormat(
+      vao,
+      a_info->attribute_index,
+      a_info->attribute_count,
+      a_info->attribute_type,
+      GL_FALSE,
+      offset
+    );
+    glVertexArrayAttribBinding(vao, a_info->attribute_index, 0);
+
+    GAME_LOGF(" create vbo: offset was: %lu", offset);
+    offset += gl_type_to_size(a_info->attribute_type) * a_info->attribute_count;
+  }
+
+  /* cleanup */
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  GAME_LOGF(" create vbo: stride was: %lu", stride);
+  return vbo;
+}
+
+static u0 destroy_gl_vbo(
+  gl_resource_data *const _resource_data,
+  gl_resource_handle      _handle
+) {
+  GLuint vbo = _handle->internal_handle;
+  GLuint vao = *(GLuint *)_resource_data->impl_storage;
+
+  glDeleteVertexArrays(1, &vao);
+  glDeleteBuffers(1, &vbo);
+
+  free(_resource_data->impl_storage);
+}
+
+static GLuint create_gl_resource(const gl_resource_data *const resource_data) {
+  switch (resource_data->desc.dummy.creation_info_type) {
+  case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
+    GAME_LOGF("creating FBO");
+    return create_gl_fbo(resource_data);
+  }
+  case RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
+    GAME_LOGF("creating VBO");
+    return create_gl_vbo(resource_data);
+    /* etc... */
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_SHADER: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_SHADER_STORAGE_BUFFER: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
+    break;
+  }
+  case RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER: {
+    break;
+  }
+  default: {
+    GAME_CRITICALF("unknown creation info passed to create_resource");
+    exit(1);
+    break;
+  }
+  }
+}
 
 static u0 request_gl_resource(
   const gl_resource_data *const resource_data,
@@ -391,48 +680,7 @@ static u0 request_gl_resource(
   }
 
   GAME_LOGF("creating new gl object");
-  GLuint gl_handle = 0;
-
-  /* resource does not yet exists */
-  switch (resource_data->desc.dummy.creation_info_type) {
-  case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
-    GAME_LOGF("creating FBO");
-    gl_handle = 1; /* implement */
-    /* etc... */
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
-    GAME_LOGF("creating VBO");
-    gl_handle = 2; /* implement */
-    /* etc... */
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER: {
-    /* etc... */
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_SSBO: {
-
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_SHADER: {
-
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
-
-    break;
-  }
-  case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
-
-    break;
-  }
-  default: {
-    GAME_CRITICALF("unknown creation info passed to create_resource");
-    exit(1);
-    break;
-  }
-  }
+  const GLuint gl_handle = create_gl_resource(resource_data);
 
   /* make sure handle pointer table was properly cleared before */
   assert(
