@@ -79,8 +79,8 @@ bool render(u0) {
 }
 
 int main(u0) {
-
   setup_stacktrace();
+  STRACE();
 
   FILE *lf = fopen("./game_logs.txt", "w");
   if (!lf) {

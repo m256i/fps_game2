@@ -1,18 +1,51 @@
+#include <stdatomic.h>
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <dbghelp.h>
 #include <stdio.h>
-#include <util/dbg/strace.h>
-
+#include <pthread.h>
 #include <common.h>
+
+#include <containers/str_hash_table.h>
+
+static str_hash_table  function_lookup = {0};
+static _Atomic bool    initialized     = false;
+static pthread_mutex_t funcs_lock      = PTHREAD_MUTEX_INITIALIZER;
+
+LONG WINAPI unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo);
 
 u0 setup_stacktrace(u0) {
   SetUnhandledExceptionFilter(unhandled_exception_handerl);
 }
 
+u0 add_strace_name(uptr _addr, const char *_pretty_name) {
+  if (!atomic_load(&initialized)) {
+    str_hash_table_initialize(&function_lookup, sizeof(const char *), 10);
+    atomic_store(&initialized, true);
+  }
+
+  pthread_mutex_lock(&funcs_lock);
+  {
+    char *str = calloc(1, 0xff);
+    _ultoa_s((uptr)_addr, str, 0xff, 16);
+    if (str_hash_table_contains(&function_lookup, str)) {
+      free(str);
+      pthread_mutex_unlock(&funcs_lock);
+      return;
+    }
+    str_hash_table_insert(&function_lookup, str, (u0 *)_pretty_name);
+  }
+  pthread_mutex_unlock(&funcs_lock);
+}
+
 #define MAX_FRAMES 64
 
 LONG WINAPI unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
+  if (!atomic_load(&initialized)) {
+    str_hash_table_initialize(&function_lookup, sizeof(const char *), 10);
+    atomic_store(&initialized, true);
+  }
+
   HANDLE process = GetCurrentProcess();
   SymInitialize(process, NULL, TRUE);
 
@@ -42,8 +75,9 @@ LONG WINAPI unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
   symbol->MaxNameLen   = 255;
   symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
 
-  // Walk the stack
-  for (int frameNum = 0; frameNum < MAX_FRAMES; frameNum++) {
+  pthread_mutex_lock(&funcs_lock);
+
+  for (usize frameNum = 0; frameNum < MAX_FRAMES; frameNum++) {
     if (!StackWalk64(
           imageType,
           process,
@@ -63,6 +97,9 @@ LONG WINAPI unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
       break;
     }
 
+    char addrstr[0xff] = {0};
+    _ultoa_s(address, addrstr, 0xff, 16);
+
     DWORD64 displacement = 0;
     if (SymFromAddr(process, address, &displacement, symbol)) {
       fprintf(
@@ -70,6 +107,15 @@ LONG WINAPI unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
         "%02d: %s + 0x%0llx (0x%0llx)\n",
         frameNum,
         symbol->Name,
+        (unsigned long long)displacement,
+        (unsigned long long)address
+      );
+    } else if (str_hash_table_contains(&function_lookup, addrstr)) {
+      fprintf(
+        stderr,
+        "%02d: %s + 0x%0llx (0x%0llx)\n",
+        frameNum,
+        (char *)str_hash_table_at(&function_lookup, addrstr),
         (unsigned long long)displacement,
         (unsigned long long)address
       );
@@ -82,6 +128,8 @@ LONG WINAPI unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
       );
     }
   }
+
+  pthread_mutex_unlock(&funcs_lock);
 
   free(symbol);
   SymCleanup(process);

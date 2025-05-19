@@ -20,7 +20,7 @@ typedef struct {
   bool                 initialized;
 } str_hash_table;
 
-u0 str_hash_table_initialize(
+inline u0 str_hash_table_initialize(
   str_hash_table *const _table,
   usize                 _obj_size,
   usize                 _obj_count
@@ -40,7 +40,7 @@ u0 str_hash_table_initialize(
   _table->initialized = true;
 }
 
-u0 str_hash_table_dbg_print(str_hash_table *const _table) {
+inline u0 str_hash_table_dbg_print(str_hash_table *const _table) {
   puts("hash table: {");
   for (usize i = 0; i != _table->str_hasher.bucket_count; i++) {
     if (_table->str_hasher.data[i].used && _table->str_hasher.data[i].key) {
@@ -56,7 +56,7 @@ u0 str_hash_table_dbg_print(str_hash_table *const _table) {
   puts("}");
 }
 
-u32 str_hash_table_insert(
+inline u32 str_hash_table_insert(
   str_hash_table *const _table,
   const char           *_key,
   u0                   *_obj
@@ -92,7 +92,7 @@ u32 str_hash_table_insert(
   return idx;
 }
 
-u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
+inline u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
   assert(_table->initialized);
   const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
 
@@ -122,7 +122,7 @@ u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
   }
 }
 
-u0 *str_hash_table_at(str_hash_table *const _table, const char *_key) {
+inline u0 *str_hash_table_at(str_hash_table *const _table, const char *_key) {
   assert(_table->initialized);
   const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
   if (idx == UINT32_MAX) {
@@ -132,18 +132,20 @@ u0 *str_hash_table_at(str_hash_table *const _table, const char *_key) {
   return _table->buckets[idx].data;
 }
 
-bool str_hash_table_contains(str_hash_table *const _table, const char *_key) {
+inline bool
+str_hash_table_contains(str_hash_table *const _table, const char *_key) {
   assert(_table->initialized);
   const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
   return idx != UINT32_MAX;
 }
 
-u32 str_hash_table_get_index(str_hash_table *const _table, const char *_key) {
+inline u32
+str_hash_table_get_index(str_hash_table *const _table, const char *_key) {
   assert(_table->initialized);
   return str_indexer_contains(&_table->str_hasher, _key);
 }
 
-u0 *str_hash_table_at_index(str_hash_table *const _table, u32 _index) {
+inline u0 *str_hash_table_at_index(str_hash_table *const _table, u32 _index) {
   assert(_table->initialized);
   assert(_index < _table->obj_array_len);
 
@@ -155,7 +157,7 @@ u0 *str_hash_table_at_index(str_hash_table *const _table, u32 _index) {
   return _table->buckets[_index].data;
 }
 
-u0 str_hash_table_destroy(str_hash_table *const _table) {
+inline u0 str_hash_table_destroy(str_hash_table *const _table) {
   assert(_table->initialized);
 
   for (usize i = 0; i != _table->obj_array_len; i++) {

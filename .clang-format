@@ -37,13 +37,6 @@ AlignConsecutiveShortCaseStatements:
   Enabled:         true
   AcrossEmptyLines: false
   AcrossComments:  true
-AlignConsecutiveTableGenBreakingDAGArgColons:
-  Enabled:         true
-  AcrossEmptyLines: false
-  AcrossComments:  true
-  AlignCompound:   true
-  AlignFunctionPointers: true
-  PadOperators:    true
 AlignConsecutiveTableGenCondOperatorColons:
   Enabled:         true
   AcrossEmptyLines: false
@@ -180,7 +173,6 @@ LambdaBodyIndentation: Signature
 LineEnding:      DeriveLF
 MacroBlockBegin: ''
 MacroBlockEnd:   ''
-MainIncludeChar: Quote
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
 ObjCBinPackProtocolList: Auto
@@ -249,7 +241,6 @@ SpacesInLineCommentPrefix:
   Maximum:         -1
 SpacesInParens:  Never
 SpacesInParensOptions:
-  ExceptDoubleParentheses: false
   InCStyleCasts:   false
   InConditionalStatements: false
   InEmptyParentheses: false
