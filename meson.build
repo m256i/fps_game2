@@ -20,6 +20,7 @@ c_compiler_args = [
   '-mtune=native',
   '-fomit-frame-pointer',
   '-ffast-math',
+  '-fplugin=F:/fps_game2/libftrace.dll',
 ]
 
 # Normalize paths

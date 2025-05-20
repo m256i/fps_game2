@@ -74,13 +74,12 @@ bool render(u0) {
     );
   }
 
-  rendered_frames++;
+  ++rendered_frames;
   return true;
 }
 
 int main(u0) {
   setup_stacktrace();
-  STRACE();
 
   FILE *lf = fopen("./game_logs.txt", "w");
   if (!lf) {
@@ -89,9 +88,6 @@ int main(u0) {
   }
   log_add_fp(lf, LOG_TRACE);
   GAME_LOGF("initialising game client version %s", GAME_CLIENT_VER_STR);
-
-  volatile int *p = NULL;
-  *p              = 0xDEADBEEF;
 
   // unit_test_mathlib();
 
@@ -131,7 +127,6 @@ int main(u0) {
   // destroy_gl_resource(&rd, &rh1);
 
   // request_gl_resource(&rd, &rh);
-  return 0;
 
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
 

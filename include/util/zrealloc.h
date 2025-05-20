@@ -5,7 +5,8 @@
 #include <string.h>
 
 /* realloc that 0s out the new buffer part */
-static u0 *zrealloc(u0 *_mem, usize _oldsize, usize _newsize) {
+static __attribute__((no_strace)) u0 *
+zrealloc(u0 *_mem, usize _oldsize, usize _newsize) {
   if (_oldsize == _newsize) {
     return _mem;
   }
