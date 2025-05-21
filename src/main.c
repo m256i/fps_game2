@@ -129,22 +129,16 @@ int main(u0) {
   //   .resource_name = "my_vertex_buffer0"
   // };
   // // clang-format on
-
   // gl_resource_handle rh  = {0};
   // gl_resource_handle rh1 = {0};
-
   // request_gl_resource(&rd, &rh);
   // request_gl_resource(&rd, &rh1);
-
   // printf("rh internal %u\n", rh->internal_handle);
   // printf("rh index %u\n", rh->hashed_resource_index);
-
   // request_gl_resource(&rd, &rh);
-
   // destroy_gl_resource(&rd, &rh);
   // destroy_gl_resource(&rd, &rh);
   // destroy_gl_resource(&rd, &rh1);
-
   // request_gl_resource(&rd, &rh);
 
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
