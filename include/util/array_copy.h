@@ -5,8 +5,10 @@
 #include <string.h>
 #include <assert.h>
 
+#include <util/dbg/alloctrack.h>
+
 inline u0 *memclone(u0 *_src, usize _src_size) {
-  u0 *ptr = malloc(_src_size);
+  u0 *ptr = TRACKED_MALLOC(_src_size);
   assert(ptr);
   memcpy(ptr, _src, _src_size);
   return ptr;
@@ -14,7 +16,7 @@ inline u0 *memclone(u0 *_src, usize _src_size) {
 
 inline char *strclone(char *_src) {
   const usize len  = strlen(_src);
-  char       *nstr = malloc(len + 1);
+  char       *nstr = TRACKED_MALLOC(len + 1);
   assert(nstr);
   strcpy(nstr, _src);
   return nstr;
@@ -22,7 +24,7 @@ inline char *strclone(char *_src) {
 
 inline char *strnclone_s(char *_src, usize _maxsize) {
   const usize len  = strnlen_s(_src, _maxsize);
-  char       *nstr = malloc(len + 1);
+  char       *nstr = TRACKED_MALLOC(len + 1);
   assert(nstr);
   strncpy_s(nstr, len + 1, _src, _maxsize);
   return nstr;

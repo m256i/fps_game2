@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <common.h>
+#include <util/dbg/alloctrack.h>
 
 typedef struct {
   uint64_t key;
@@ -136,6 +137,9 @@ unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
   pthread_mutex_unlock(&funcs_lock);
   free(symbol);
   SymCleanup(process);
+
+  dump_alloc_statistics();
+
   return EXCEPTION_CONTINUE_SEARCH;
 }
 

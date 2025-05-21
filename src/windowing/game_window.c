@@ -5,6 +5,8 @@
 #include <RGFW/RGFW.h>
 #include <assert.h>
 
+#include <util/dbg/alloctrack.h>
+
 #ifdef _WIN64
 #include <windows.h>
 #endif
@@ -121,7 +123,7 @@ u0 create_global_window(
   usize             _h,
   u32               _render_mode
 ) {
-  global_window = malloc(sizeof(window));
+  global_window = TRACKED_MALLOC(sizeof(window));
   memset(global_window, 0, sizeof *global_window);
 
   RGFW_window *win;
@@ -237,10 +239,10 @@ u0 destroy_global_window() {
     global_window && global_window->internal_window &&
     global_window->initialized
   );
-  RGFW_window_close(global_window->internal_window);
-  free(global_window);
   destroy_frame_pacer(&global_window->fpc);
   destroy_vulkan_context(&global_window->vk_ctx);
+  RGFW_window_close(global_window->internal_window);
+  TRACKED_FREE(global_window);
 }
 
 bool window_should_close(u0) {

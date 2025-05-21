@@ -44,7 +44,7 @@
 /* hash with FNV1A32_CSTR_LEN("my string", 9) where 9 is strlen("my string") */
 #define FNV1A32_CSTR_LEN(s, len) HASH_STR_##len(s)
 
-u32 fnv32_hash(const char *_str) {
+inline u32 fnv32_hash(const char *_str) {
   const usize len  = strnlen_s(_str, 128);
   u32         hash = FNV_OFFSET;
   for (usize i = 0; i != len; i++) {

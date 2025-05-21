@@ -28,7 +28,7 @@ u32 str_indexer_contains    (const str_indexer *_map, const char *_key);
 u0  str_indexer_erase       (str_indexer *_map, const char *_key);
 
 // clang-format on
-static u0 str_indexer_dbg_print(str_indexer *_map) {
+inline u0 str_indexer_dbg_print(str_indexer *_map) {
   puts("string indices: {");
   for (usize i = 0; i != _map->bucket_count; i++) {
     if (_map->data[i].used) {

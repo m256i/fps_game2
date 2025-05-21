@@ -2,6 +2,8 @@
 #include <RGFW/RGFW.h>
 #include <log/log.h>
 #include <common.h>
+#include <util/dbg/alloctrack.h>
+
 #include <windowing/game_window.h>
 
 #include <glad/glad.h>
@@ -165,7 +167,8 @@ int main(u0) {
   glDeleteBuffers(1, &vbo);
   glDeleteVertexArrays(1, &vao);
 
-  puts("done");
   destroy_global_window();
+
+  GAME_LOGF("game exited gracefully");
   return 0;
 }

@@ -4,13 +4,14 @@
 #include <common.h>
 #include <string.h>
 
+#include <util/dbg/alloctrack.h>
+
 /* realloc that 0s out the new buffer part */
-static __attribute__((no_strace)) u0 *
-zrealloc(u0 *_mem, usize _oldsize, usize _newsize) {
+inline u0 *zrealloc(u0 *_mem, usize _oldsize, usize _newsize) {
   if (_oldsize == _newsize) {
     return _mem;
   }
-  u0 *newbuf = realloc(_mem, _newsize);
+  u0 *newbuf = TRACKED_REALLOC(_mem, _newsize);
   if (!newbuf) {
     GAME_CRITICALF("OOM");
     exit(1);

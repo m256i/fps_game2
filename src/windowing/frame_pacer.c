@@ -14,6 +14,8 @@
 #include <strsafe.h>
 #include <objbase.h>
 
+#include <util/dbg/alloctrack.h>
+
 u0 init_render_timing_data(render_timing_data *data) {
   data->ewma_mean   = 0.0;
   data->ewma_m2     = 0.0;
@@ -63,7 +65,7 @@ static u0 destroy_etw(frame_pacer_context *const _ctx) {
     CloseTrace(_ctx->s_hTrace);
   }
 
-  free(_ctx->etw_props);
+  TRACKED_FREE(_ctx->etw_props);
   GAME_LOGF("ETW successfully destroyed");
 }
 
@@ -90,7 +92,7 @@ static u0 setup_etw(frame_pacer_context *const _ctx) {
                                   sizeof(LOGFILE_PATH) +
                                   sizeof(LOGSESSION_NAME);
 
-  _ctx->etw_props = (EVENT_TRACE_PROPERTIES *)malloc(BufferSize);
+  _ctx->etw_props = (EVENT_TRACE_PROPERTIES *)TRACKED_MALLOC(BufferSize);
   ZeroMemory(_ctx->etw_props, BufferSize);
 
   _ctx->etw_props->Wnode.BufferSize    = BufferSize;
@@ -293,7 +295,7 @@ u0 initialize_frame_pacer(frame_pacer_context *const _ctx) {
   (u0) _tid;
   GAME_LOGF("pacing thread up...");
 
-  setup_etw(_ctx);
+  // setup_etw(_ctx);
 }
 
 u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
@@ -304,6 +306,7 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
   /*
   wait before destroying resources to prevent crash
   */
+
   while (WaitForSingleObject(_ctx->pacer_thread_handle, 0) != WAIT_OBJECT_0) {
     continue;
   }
@@ -317,11 +320,12 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
     _ctx->adapter = NULL;
   }
   CoUninitialize();
-  destroy_etw(_ctx);
+  // destroy_etw(_ctx);
 
-  while (WaitForSingleObject(_ctx->etw_listener_handle, 0) != WAIT_OBJECT_0) {
-    continue;
-  }
+  // while (WaitForSingleObject(_ctx->etw_listener_handle, 0) != WAIT_OBJECT_0)
+  // {
+  //   continue;
+  // }
 
   _ctx->s_hTrace   = 0;
   _ctx->s_hSession = 0;

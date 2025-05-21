@@ -2,6 +2,7 @@
 #include <windowing/vulkan_present.h>
 #include <glad/glad.h>
 #include <assert.h>
+#include <util/dbg/alloctrack.h>
 
 #ifdef GAME_DEBUG
 
@@ -39,12 +40,12 @@ static VkSemaphore create_exportable_semaphore(VkDevice _device) {
 
 static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   ctx->swapchain.current_index = 0;
-  ctx->swapchain.vk_wait_semaphores     = malloc(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
-  ctx->swapchain.vk_signal_semaphores   = malloc(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
-  ctx->swapchain.gl_wait_semaphores     = malloc(sizeof(GLuint) * ctx->swapchain.count_fbos);
-  ctx->swapchain.gl_signal_semaphores   = malloc(sizeof(GLuint) * ctx->swapchain.count_fbos);
-  ctx->swapchain.wait_handles           = malloc(sizeof(HANDLE) * ctx->swapchain.count_fbos);
-  ctx->swapchain.sig_handles            = malloc(sizeof(HANDLE) * ctx->swapchain.count_fbos);
+  ctx->swapchain.vk_wait_semaphores     = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+  ctx->swapchain.vk_signal_semaphores   = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+  ctx->swapchain.gl_wait_semaphores     = TRACKED_MALLOC(sizeof(GLuint) * ctx->swapchain.count_fbos);
+  ctx->swapchain.gl_signal_semaphores   = TRACKED_MALLOC(sizeof(GLuint) * ctx->swapchain.count_fbos);
+  ctx->swapchain.wait_handles           = TRACKED_MALLOC(sizeof(HANDLE) * ctx->swapchain.count_fbos);
+  ctx->swapchain.sig_handles            = TRACKED_MALLOC(sizeof(HANDLE) * ctx->swapchain.count_fbos);
 
   memset(ctx->swapchain.vk_wait_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   memset(ctx->swapchain.vk_signal_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
@@ -111,12 +112,12 @@ static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkS
     GAME_LOGF("no available present modes!");
     exit(1);
   }
-  VkPresentModeKHR *present_modes = malloc(sizeof(present_mode_count) * present_mode_count);
+  VkPresentModeKHR *present_modes = TRACKED_MALLOC(sizeof(present_mode_count) * present_mode_count);
   vkGetPhysicalDeviceSurfacePresentModesKHR(*_phys_dev, *_surface, &present_mode_count, present_modes);
   for (u32 i = 0; i != present_mode_count; i++) {
     /* we prefer immediate (no waiting) */
     if (present_modes[i] == _prefered_mode) {
-      free(present_modes);
+      TRACKED_FREE(present_modes);
       return _prefered_mode;
     }
   } // VK_PRESENT_MODE_IMMEDIATE_KHR
@@ -144,23 +145,23 @@ static VkSurfaceFormatKHR get_viable_surface_format(VkPhysicalDevice *_phys_dev,
     GAME_LOGF("no available surface modes!");
     exit(1);
   }
-  VkSurfaceFormatKHR *formats = malloc(sizeof(VkSurfaceFormatKHR) * format_count);
+  VkSurfaceFormatKHR *formats = TRACKED_MALLOC(sizeof(VkSurfaceFormatKHR) * format_count);
   vkGetPhysicalDeviceSurfaceFormatsKHR(*_phys_dev, *_surface, &format_count, formats);
 
   for (u32 i = 0; i != format_count; i++) {
     if (formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && formats[i].format == VK_FORMAT_B8G8R8A8_SRGB) {
       const VkSurfaceFormatKHR f= formats[i];
-      free(formats);
+      TRACKED_FREE(formats);
       return f;
     }
     if (formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR && formats[i].format == VK_FORMAT_R8G8B8A8_SRGB) {
       const VkSurfaceFormatKHR f= formats[i];
-      free(formats);
+      TRACKED_FREE(formats);
       return f;
     }
   }
   /* safe default */
-  free(formats);
+  TRACKED_FREE(formats);
   GAME_LOGF("using fallback surface format mode!");
   exit(1);
   return formats[0];
@@ -189,7 +190,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   {
     u32 lc = 0;
     vkEnumerateInstanceLayerProperties(&lc, NULL);
-    VkLayerProperties *available_layers = malloc(sizeof(VkLayerProperties) * lc);
+    VkLayerProperties *available_layers = TRACKED_MALLOC(sizeof(VkLayerProperties) * lc);
     vkEnumerateInstanceLayerProperties(&lc, available_layers);
     bool av = false;
     for (u32 i = 0; i < lc; i++) {
@@ -198,7 +199,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
         break;
       }
     }
-    free(available_layers);
+    TRACKED_FREE(available_layers);
     if (!av) {
       GAME_LOGF("Validation layer VK_LAYER_KHRONOS_validation not available");
       exit(1);
@@ -426,11 +427,11 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   u32 image_count = 0;
   vkGetSwapchainImagesKHR(device, swapchain, &image_count, NULL);
   _context->swapchain.count_fbos = image_count;
-  _context->swapchain.shared_fbos = malloc(sizeof(shared_fbo) * image_count);
+  _context->swapchain.shared_fbos = TRACKED_MALLOC(sizeof(shared_fbo) * image_count);
 
-  _context->images = malloc(sizeof(VkImage) * image_count);
-  _context->swapchain_images = malloc(sizeof(VkImage) * image_count);
-  _context->image_memories = malloc(sizeof(VkDeviceMemory) * image_count);
+  _context->images = TRACKED_MALLOC(sizeof(VkImage) * image_count);
+  _context->swapchain_images = TRACKED_MALLOC(sizeof(VkImage) * image_count);
+  _context->image_memories = TRACKED_MALLOC(sizeof(VkDeviceMemory) * image_count);
 
   vkGetSwapchainImagesKHR(device, swapchain, &image_count, _context->swapchain_images);
 
@@ -521,8 +522,8 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   };
   vkCreateCommandPool(_context->vk_device, &poolInfo, NULL, &_context->cmd_pool);
 
-  _context->cmd_buffers = malloc(sizeof(VkCommandBuffer) * image_count);
-  _context->inflight_fences = malloc(sizeof(VkFence) * image_count);
+  _context->cmd_buffers = TRACKED_MALLOC(sizeof(VkCommandBuffer) * image_count);
+  _context->inflight_fences = TRACKED_MALLOC(sizeof(VkFence) * image_count);
 
   VkCommandBufferAllocateInfo allocInfo = {
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -766,6 +767,8 @@ u0 destroy_vulkan_context(vk_context *_context)
 
   vkDeviceWaitIdle(_context->vk_device);
 
+  GAME_LOGF("destroying vk_context");
+  
   for (usize idx = 0; idx != _context->swapchain.count_fbos; idx++) {
     glSignalSemaphoreEXT(
       _context->swapchain.gl_wait_semaphores[idx], 
@@ -775,8 +778,10 @@ u0 destroy_vulkan_context(vk_context *_context)
     );
   }
 
+  GAME_LOGF("waited for gl semaphores");
+  
   VkDevice device = _context->vk_device;
-
+  
   vk_sc_ringbuf *rb = &_context->swapchain;
   if (rb->shared_fbos) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
@@ -785,19 +790,23 @@ u0 destroy_vulkan_context(vk_context *_context)
       if (fbo->texture_handle) glDeleteTextures(1, &fbo->texture_handle);
       if (fbo->memory_object) glDeleteMemoryObjectsEXT(1, &fbo->memory_object);
     }
-    free(rb->shared_fbos);
+    TRACKED_FREE(rb->shared_fbos);
   }
 
+  GAME_LOGF("destroyed shared fbos");
+  
   if (rb->gl_wait_semaphores) {
     glDeleteSemaphoresEXT((GLsizei)rb->count_fbos, rb->gl_wait_semaphores);
-    free(rb->gl_wait_semaphores);
+    TRACKED_FREE(rb->gl_wait_semaphores);
   }
-
+  
   if (rb->gl_signal_semaphores) {
     glDeleteSemaphoresEXT((GLsizei)rb->count_fbos, rb->gl_signal_semaphores);
-    free(rb->gl_signal_semaphores);
+    TRACKED_FREE(rb->gl_signal_semaphores);
   }
 
+  GAME_LOGF("destroyed signal semaphores");
+  
   if (rb->vk_wait_semaphores) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
       if (rb->vk_wait_semaphores[i]) {
@@ -805,8 +814,10 @@ u0 destroy_vulkan_context(vk_context *_context)
         vkDestroySemaphore(device, rb->vk_wait_semaphores[i], NULL);
       }
     }
-    free(rb->vk_wait_semaphores);
+    TRACKED_FREE(rb->vk_wait_semaphores);
   }
+
+  GAME_LOGF("destroyed wait semaphores");
 
   if (rb->vk_signal_semaphores) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
@@ -815,18 +826,26 @@ u0 destroy_vulkan_context(vk_context *_context)
         vkDestroySemaphore(device, rb->vk_signal_semaphores[i], NULL);
       }
     }
-    free(rb->vk_signal_semaphores);
+    TRACKED_FREE(rb->vk_signal_semaphores);
   }
 
+  GAME_LOGF("destroyed vk signal semaphores");
+
   if (rb->wait_handles) {
-    for (usize i = 0; i < rb->count_fbos; ++i) {
-      CloseHandle(rb->wait_handles[i]);
+    if (rb->wait_handles) {
+      for (usize i = 0; i < rb->count_fbos; ++i) {
+        CloseHandle(rb->wait_handles[i]);
+      }
     }
+    TRACKED_FREE(rb->wait_handles);
   }
 
   if (rb->sig_handles) {
-    for (usize i = 0; i < rb->count_fbos; ++i) {
-      CloseHandle(rb->sig_handles[i]);
+    if (rb->sig_handles) {
+      for (usize i = 0; i < rb->count_fbos; ++i) {
+        CloseHandle(rb->sig_handles[i]);
+      }
+      TRACKED_FREE(rb->sig_handles);
     }
   }
 
@@ -838,47 +857,64 @@ u0 destroy_vulkan_context(vk_context *_context)
         vkDestroyFence(device, _context->inflight_fences[i], NULL);
       }
     }
-    free(_context->inflight_fences);
+    TRACKED_FREE(_context->inflight_fences);
   }
+
+  GAME_LOGF("destroyed vk fences semaphores");
 
   if (_context->cmd_buffers) {
     vkFreeCommandBuffers(device, _context->cmd_pool, (uint32_t)rb->count_fbos, _context->cmd_buffers);
-    free(_context->cmd_buffers);
+    TRACKED_FREE(_context->cmd_buffers);
   }
 
+  GAME_LOGF("destroyed vk cmd buffers");
+  
   if (_context->cmd_pool) {
     vkDestroyCommandPool(device, _context->cmd_pool, NULL);
   }
 
+  GAME_LOGF("destroyed vk cmd pool");
+  
   if (_context->images) {
     for (usize i =0; i != _context->swapchain.count_fbos; i++) {
       vkDestroyImage(_context->vk_device, _context->images[i], NULL);
     }
-    free(_context->images); // These are not created or destroyed manually, just array of handles
+    TRACKED_FREE(_context->images); // These are not created or destroyed manually, just array of handles
   }
 
+  GAME_LOGF("destroyed vk images");
+  
   if (_context->image_memories) {
     for (usize i =0; i != _context->swapchain.count_fbos; i++) {
       vkFreeMemory(_context->vk_device, _context->image_memories[i], NULL);
     }
-    free(_context->image_memories);
+    TRACKED_FREE(_context->image_memories);
   }
 
+  GAME_LOGF("destroyed vk image memories");
+  
   if (_context->swapchain_images) {
-    free(_context->swapchain_images);
+    TRACKED_FREE(_context->swapchain_images);
   }
-
+  GAME_LOGF("destroyed vk swapchain images");
+  
   if (_context->vk_swapchain) {
     vkDestroySwapchainKHR(device, _context->vk_swapchain, NULL);
   }
 
+  GAME_LOGF("destroyed vk swapchain");
+  
   if (_context->vk_surface) {
     vkDestroySurfaceKHR(_context->vk_instance, _context->vk_surface, NULL);
   }
 
+  GAME_LOGF("destroyed vk surface");
+  
   if (device) {
     vkDestroyDevice(device, NULL);
   }
+
+  GAME_LOGF("destroyed vk device");
 
   if (_context->vk_instance) {
 #ifdef GAME_DEBUG

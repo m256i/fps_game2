@@ -2,6 +2,8 @@
 #include <windowing/frame_pacer.h>
 #include <containers/spsc_u64.h>
 
+#include <util/dbg/alloctrack.h>
+
 const char *event_id_to_name(unsigned id) {
   switch (id) {
   case 0x0023: return "AdapterAllocation_DCStart";
@@ -64,7 +66,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
     return;
   }
 
-  pInfo = (TRACE_EVENT_INFO *)malloc(bufferSize);
+  pInfo = (TRACE_EVENT_INFO *)TRACKED_MALLOC(bufferSize);
   if (pInfo == NULL) {
     wprintf(L"Failed to allocate memory for TRACE_EVENT_INFO\n");
     return;
@@ -73,12 +75,12 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
   status = TdhGetEventInformation(pEvent, 0, NULL, pInfo, &bufferSize);
   if (status != ERROR_SUCCESS) {
     wprintf(L"TdhGetEventInformation failed: 0x%x\n", status);
-    free(pInfo);
+    TRACKED_FREE(pInfo);
     return;
   }
 
   if (pEvent->EventHeader.EventDescriptor.Channel != 0x11) {
-    free(pInfo);
+    TRACKED_FREE(pInfo);
     return;
   }
 
@@ -125,7 +127,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
   /* ...yes i know, but it changes between statements */
   if (flip_info_id != -1ul) {
     if (pEvent->EventHeader.EventDescriptor.Id != flip_info_id) {
-      free(pInfo);
+      TRACKED_FREE(pInfo);
       return;
     }
     for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
@@ -157,7 +159,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
             pname,
             status
           );
-          free(pInfo);
+          TRACKED_FREE(pInfo);
           return;
         }
         assert(propertySize == sizeof(u32));
@@ -178,7 +180,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
 
         if (status != ERROR_SUCCESS) {
           wprintf(L"  %s: <Error retrieving value (0x%x)>\n", pname, status);
-          free(pInfo);
+          TRACKED_FREE(pInfo);
           return;
         }
 
@@ -193,5 +195,5 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
       }
     }
   }
-  free(pInfo);
+  TRACKED_FREE(pInfo);
 }
