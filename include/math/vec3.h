@@ -39,7 +39,7 @@ inline vec3 make_vec3(f32 _x, f32 _y, f32 _z) {
 }
 
 /*
-TODO: fix fucked up PROC names
+TODO: fix fucked up PROC names "...ROC" -> "...PROC"
 */
 /*
 ONLY USE IN NON-PERFORMANCE-CRITICAL SCENARIOS FOR CLEANER SYNTAX
