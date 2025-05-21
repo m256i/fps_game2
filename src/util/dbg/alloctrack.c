@@ -128,8 +128,13 @@ u0 tracked_free(u0 *_ptr, const char *_function) {
         alloc_map,
         &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
       )) {
-    GAME_CRITICALF("free on unknown item %p in function: %s", _ptr, _function);
+    GAME_CRITICALF("free on unknown item %p in: %s", _ptr, _function);
   }
+
+  if (!_ptr) {
+    GAME_CRITICALF("free on NULL in %s", _function);
+  }
+
   free(_ptr);
   pthread_mutex_unlock(&alloc_mutex);
 }
@@ -141,8 +146,13 @@ u0 tracked_aligned_free(u0 *_ptr, const char *_function) {
         alloc_map,
         &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
       )) {
-    GAME_CRITICALF("free on unknown item %p in function: %s", _ptr, _function);
+    GAME_CRITICALF("free on unknown item %p in: %s", _ptr, _function);
   }
+
+  if (!_ptr) {
+    GAME_CRITICALF("free on NULL in %s", _function);
+  }
+
   _aligned_free(_ptr);
   pthread_mutex_unlock(&alloc_mutex);
 }

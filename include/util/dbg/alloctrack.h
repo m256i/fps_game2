@@ -2,7 +2,7 @@
 #define UTIL_DBG_ALLOCTRACK_H_
 
 #include <common.h>
-
+#ifdef GAME_DEBUG
 #define TRACKED_MALLOC(_size) tracked_malloc(_size, __PRETTY_FUNCTION__)
 #define TRACKED_ALIGNED_MALLOC(_size, _alignment)                              \
   tracked_aligned_malloc(_size, _alignment, __PRETTY_FUNCTION__)
@@ -15,6 +15,19 @@
 #define TRACKED_FREE(_ptr) tracked_free(_ptr, __PRETTY_FUNCTION__)
 #define TRACKED_ALIGNED_FREE(_ptr)                                             \
   tracked_aligned_free(_ptr, __PRETTY_FUNCTION__)
+
+#else
+#include <stdlib.h>
+#define TRACKED_MALLOC(_size) malloc(_size)
+#define TRACKED_ALIGNED_MALLOC(_size, _alignment)                              \
+  _aligned_malloc(_size, _alignment)
+#define TRACKED_ALIGNED_REALLOC(_ptr, _size, _alignment)                       \
+  _aligned_malloc(_ptr, _size, _alignment)
+#define TRACKED_REALLOC(_ptr, _size)  realloc(_ptr, _size)
+#define TRACKED_CALLOC(_count, _size) calloc(_count, _size)
+#define TRACKED_FREE(_ptr)            free(_ptr)
+#define TRACKED_ALIGNED_FREE(_ptr)    _aligned_free(_ptr)
+#endif
 
 u0 *tracked_malloc(usize _size, const char *_function);
 u0 *tracked_aligned_malloc(

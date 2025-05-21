@@ -20,6 +20,7 @@ typedef struct {
   size_t    size;
 } hashmap;
 
+/* small hmap implementation that isnt tracked to prevent infinite recursion */
 __attribute__((no_strace)) u0    hm_init(hashmap *hm, size_t capacity);
 __attribute__((no_strace)) u0    hm_resize(hashmap *hm);
 __attribute__((no_strace)) char *hm_at(hashmap *hm, uint64_t key);
@@ -36,6 +37,15 @@ __attribute__((no_strace)) u0 setup_stacktrace(u0) {
   SetUnhandledExceptionFilter(unhandled_exception_handerl);
 }
 
+/*
+we dont need a debug macro check as gcc doesnt emit calls
+to this handler when building in release mode
+
+this function is called at the entry of every function
+through my custom plugin "./ftrace_plugin"
+
+the "no_strace" plugin makes gcc ignore that function in the plugin
+*/
 void __instrument_strace(void *_addr, char *_funcname) {
   if (!atomic_load(&initialized)) {
     hm_init(&function_lookup, 16);

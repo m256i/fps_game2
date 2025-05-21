@@ -13,7 +13,7 @@
 #include <math.h>
 #include <ddraw.h>
 
-#include <math/vector.h>
+#include <math/vec3.h>
 
 #include <windowing/frame_pacer.h>
 
@@ -93,6 +93,23 @@ int main(u0) {
 
   // unit_test_mathlib();
 
+  init_mathlib();
+
+  vec3 a = make_vec3(1, 2, 3);
+  vec3 b = make_vec3(3, 2, 1);
+
+  volatile vec3 n0 = vec3_normalize(&a);
+  volatile vec3 n1 = vec3_normalize(&b);
+
+  printf("n0: %f %f %f\n", n0.x, n0.y, n0.z);
+  printf("n1: %f %f %f\n", n1.x, n1.y, n1.z);
+
+  volatile vec3 n2 = vec3_normalize_safe(&a);
+  volatile vec3 n3 = vec3_normalize_safe(&b);
+
+  printf("n2: %f %f %f\n", n2.x, n2.y, n2.z);
+  printf("n3: %f %f %f\n", n3.x, n3.y, n3.z);
+
   create_gl_context();
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
@@ -168,6 +185,7 @@ int main(u0) {
   glDeleteVertexArrays(1, &vao);
 
   destroy_global_window();
+  fclose(lf);
 
   GAME_LOGF("game exited gracefully");
   return 0;
