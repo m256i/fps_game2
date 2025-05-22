@@ -534,6 +534,7 @@ u0 destroy_gl_resource(gl_resource_data *const resource_data,
       TODO: implement OpenGL buffer deletion logic
       */
       /* free the main table slot */
+
       destroy_persistent_resource_data(&resource_slot->resource_data);
       str_hash_table_erase(table, resource_data->resource_name);
 
