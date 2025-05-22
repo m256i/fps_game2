@@ -1,20 +1,17 @@
 #include <containers/str_hash_table.h>
 
-#include <string.h>
 #include <assert.h>
+#include <string.h>
 #include <util/zrealloc.h>
 
-u0 str_hash_table_initialize(
-  str_hash_table *const _table,
-  usize                 _obj_size,
-  usize                 _obj_count
-) {
+u0 str_hash_table_initialize(str_hash_table *const _table, usize _obj_size,
+                             usize _obj_count) {
   assert(!_table->initialized);
   assert(_table && _obj_size && _obj_count);
 
   str_indexer_initialize(&_table->str_hasher, _obj_count);
 
-  _table->obj_size      = _obj_size;
+  _table->obj_size = _obj_size;
   _table->obj_array_len = _table->str_hasher.bucket_count;
   _table->buckets = calloc(_table->obj_array_len, sizeof(str_hash_table_slot));
   if (!_table->buckets) {
@@ -24,27 +21,20 @@ u0 str_hash_table_initialize(
   _table->initialized = true;
 }
 
-inline u0 str_hash_table_dbg_print(str_hash_table *const _table) {
+u0 str_hash_table_dbg_print(str_hash_table *const _table) {
   puts("hash table: {");
   for (usize i = 0; i != _table->str_hasher.bucket_count; i++) {
     if (_table->str_hasher.data[i].used && _table->str_hasher.data[i].key) {
-      printf(
-        "index: %u hash: %u key: %s value_first_byte: %u,\n",
-        _table->str_hasher.data[i].id,
-        _table->str_hasher.data[i].hash,
-        _table->str_hasher.data[i].key,
-        *(u8 *)_table->buckets[i].data
-      );
+      printf("index: %u hash: %u key: %s value_first_byte: %u,\n",
+             _table->str_hasher.data[i].id, _table->str_hasher.data[i].hash,
+             _table->str_hasher.data[i].key, *(u8 *)_table->buckets[i].data);
     }
   }
   puts("}");
 }
 
-u32 str_hash_table_insert(
-  str_hash_table *const _table,
-  const char           *_key,
-  u0                   *_obj
-) {
+u32 str_hash_table_insert(str_hash_table *const _table, const char *_key,
+                          u0 *_obj) {
   assert(_table->initialized);
   u32 idx = str_indexer_contains(&_table->str_hasher, _key);
   /* new insert? */
@@ -52,13 +42,11 @@ u32 str_hash_table_insert(
     idx = str_indexer_get_hash(&_table->str_hasher, _key);
     /* str hasher resized after string lookup */
     if (_table->str_hasher.bucket_count != _table->obj_array_len) {
-      usize old_size        = _table->obj_array_len;
+      usize old_size = _table->obj_array_len;
       _table->obj_array_len = _table->str_hasher.bucket_count;
-      _table->buckets       = zrealloc(
-        _table->buckets,
-        old_size * sizeof(str_hash_table_slot),
-        _table->obj_array_len * sizeof(str_hash_table_slot)
-      );
+      _table->buckets =
+          zrealloc(_table->buckets, old_size * sizeof(str_hash_table_slot),
+                   _table->obj_array_len * sizeof(str_hash_table_slot));
       if (!_table->buckets) {
         GAME_CRITICALF("OOM");
         exit(1);
@@ -92,18 +80,26 @@ u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
   str_indexer_erase(&_table->str_hasher, _key);
 
   if (_table->str_hasher.bucket_count != _table->obj_array_len) {
-    usize old_size        = _table->obj_array_len;
+    usize old_size = _table->obj_array_len;
     _table->obj_array_len = _table->str_hasher.bucket_count;
-    _table->buckets       = zrealloc(
-      _table->buckets,
-      old_size * sizeof(str_hash_table_slot),
-      _table->obj_array_len * sizeof(str_hash_table_slot)
-    );
+    _table->buckets =
+        zrealloc(_table->buckets, old_size * sizeof(str_hash_table_slot),
+                 _table->obj_array_len * sizeof(str_hash_table_slot));
     if (!_table->buckets) {
       GAME_CRITICALF("OOM");
       exit(1);
     }
   }
+}
+
+u0 *str_hash_table_at(str_hash_table *const _table, const char *_key) {
+  assert(_table->initialized);
+  const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
+  if (idx == UINT32_MAX) {
+    return NULL;
+  }
+  /* slot not empty */
+  return _table->buckets[idx].data;
 }
 
 bool str_hash_table_contains(str_hash_table *const _table, const char *_key) {
@@ -142,6 +138,6 @@ u0 str_hash_table_destroy(str_hash_table *const _table) {
 
   str_indexer_destroy(&_table->str_hasher);
   _table->obj_array_len = 0;
-  _table->obj_size      = 0;
-  _table->initialized   = false;
+  _table->obj_size = 0;
+  _table->initialized = false;
 }
