@@ -17,6 +17,7 @@
 #define MAX_RESOURCE_PATH_STRLEN 0xff
 
 typedef enum {
+  RESOURCE_CREATION_INFO_TYPE_INVALID,
   RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
@@ -127,17 +128,15 @@ typedef struct {
 
 typedef struct {
   /* this NEEDS to be the first element */
-  u32     creation_info_type;
-  /* NOT mutable */
-  GLenum *attachements;
-  usize   num_attachements;
-  u32     width;
-  u32     height;
-  GLenum  internal_format;
-  GLenum  format;
-  GLenum  wrap_mode;
+  u32    creation_info_type;
+  u32    width;
+  u32    height;
+  GLenum internal_format;
+  GLenum format;
+  GLenum wrap_mode;
+  bool   compress;
   /* mutable */
-  u8     *image_data;
+  u8    *image_data;
 } texture_creation_info;
 
 typedef struct {

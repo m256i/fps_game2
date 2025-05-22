@@ -2,6 +2,7 @@
 #include <renderer/internal/load_image_texture.h>
 #include <renderer/internal/load_shader.h>
 #include <renderer/gl_api.h>
+#include <renderer/internal/load_image_texture.h>
 
 gl_resource_manager_class gl_resource_manager = {0};
 
@@ -18,7 +19,6 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
 
   /* important, only shallow copy since our handle handles memory */
   out.impl_storage = _temp->impl_storage;
-
   GAME_LOGF("copied name: %s", out.resource_name);
 
   switch (_temp->desc.dummy.creation_info_type) {
@@ -45,7 +45,6 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
       sizeof *_temp->desc.vertex_buffer.vertex_attributes *
         _temp->desc.vertex_buffer.num_attributes
     );
-    /* persistant data doesnt need the buffer */
     out.desc.vertex_buffer.vertex_data = NULL;
     out.desc.vertex_buffer.index_data  = NULL;
     break;
@@ -92,12 +91,7 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
   }
   case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
     memcpy(&out.desc, &_temp->desc, sizeof out.desc);
-    out.desc.texture.image_data   = NULL;
-    out.desc.texture.attachements = memclone(
-      _temp->desc.texture.attachements,
-      _temp->desc.texture.num_attachements *
-        sizeof *_temp->desc.texture.attachements
-    );
+    out.desc.texture.image_data = NULL;
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
@@ -158,7 +152,6 @@ inline u0 destroy_persistent_resource_data(gl_resource_data *_data) {
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
-    TRACKED_FREE(_data->desc.texture.attachements);
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
@@ -176,7 +169,7 @@ inline u0 destroy_persistent_resource_data(gl_resource_data *_data) {
 }
 
 /* cancer */
-inline bool resource_data_eq(
+bool resource_data_eq(
   const gl_resource_data *const _r0,
   const gl_resource_data *const _r1
 ) {
@@ -290,16 +283,12 @@ inline bool resource_data_eq(
     const texture_creation_info *a = &_r0->desc.texture;
     const texture_creation_info *b = &_r1->desc.texture;
 
-    same_desc &= a->num_attachements == b->num_attachements;
     same_desc &= a->width == b->width;
     same_desc &= a->height == b->height;
     same_desc &= a->internal_format == b->internal_format;
     same_desc &= a->format == b->format;
     same_desc &= a->wrap_mode == b->wrap_mode;
-
-    for (usize i = 0; i < a->num_attachements; i++) {
-      same_desc &= a->attachements[i] == b->attachements[i];
-    }
+    same_desc &= a->compress == b->compress;
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
@@ -364,7 +353,7 @@ inline GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
   glCreateBuffers(1, &ebo);
   glNamedBufferData(
     ebo,
-    gl_type_to_size(vc->index_type),
+    gl_type_to_size(vc->index_type) * vc->index_count,
     vc->index_data,
     vc->buffer_usage
   );
@@ -503,11 +492,97 @@ inline GLuint create_gl_image_texture(gl_resource_data *const _resource_data) {
     it->scale,
     it->wrap_mode
   );
+
   it->width           = lt.width;
   it->height          = lt.height;
   it->internal_format = lt.internal_format;
   it->format          = lt.format;
+
+  GAME_LOGF(
+    "new tex: %lu %lu, %lu %lu",
+    it->width,
+    it->height,
+    it->internal_format,
+    it->format
+  );
   return lt.handle;
+}
+
+inline GLuint create_gl_texture(gl_resource_data *const _resource_data) {
+  texture_creation_info *const ti     = &_resource_data->desc.texture;
+  GLuint                       handle = 0;
+
+  glGenTextures(1, &handle);
+  glBindTexture(GL_TEXTURE_2D, handle);
+
+  const usize xsize = ti->width;
+  const usize ysize = ti->height;
+
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  /* initial data provided */
+  if (ti->image_data && ti->compress) {
+    /* only actually compress on RGB and RGBA */
+    switch (ti->format) {
+    case GL_RGB: {
+      const usize total_size = ((xsize + 3) / 4) * ((ysize + 3) / 4) * 8ull;
+      u8         *compressed_data = TRACKED_MALLOC(total_size);
+      compress_rgba_dxt1(compressed_data, ti->image_data, xsize, ysize);
+      glCompressedTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+        xsize,
+        ysize,
+        0,
+        total_size,
+        compressed_data
+      );
+      TRACKED_FREE(compressed_data);
+      goto done;
+    }
+    case GL_RGBA: {
+      const usize total_size = ((xsize + 3) / 4) * ((ysize + 3) / 4) * 16ull;
+      u8         *compressed_data = TRACKED_MALLOC(total_size);
+      compress_rgba_dxt5(compressed_data, ti->image_data, xsize, ysize);
+      glCompressedTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+        xsize,
+        ysize,
+        0,
+        total_size,
+        compressed_data
+      );
+      TRACKED_FREE(compressed_data);
+      goto done;
+    }
+    default: {
+      goto no_compress;
+    }
+    }
+  }
+no_compress:
+  glTexImage2D(
+    GL_TEXTURE_2D,
+    0,
+    ti->internal_format,
+    xsize,
+    ysize,
+    0,
+    ti->format,
+    GL_UNSIGNED_BYTE,
+    ti->image_data /* either valid or null */
+  );
+done:
+
+  glGenerateMipmap(GL_TEXTURE_2D);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, ti->wrap_mode);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, ti->wrap_mode);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  return handle;
 }
 
 inline u0 destroy_gl_texture(
@@ -583,7 +658,8 @@ inline GLuint impl_create_gl_resource(gl_resource_data *const resource_data) {
     return create_gl_ubo(resource_data);
   }
   case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
-    break;
+    GAME_LOGF("creating texture");
+    return create_gl_texture(resource_data);
   }
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
     GAME_LOGF("creating image texture");
@@ -667,6 +743,12 @@ u0 request_gl_resource(
   static str_hash_table *const handle_pointer_table =
     &gl_resource_manager.handle_pointers;
 
+  GAME_ASSERT(resource_data->resource_name);
+  GAME_ASSERT(
+    resource_data->desc.dummy.creation_info_type !=
+    RESOURCE_CREATION_INFO_TYPE_INVALID
+  );
+
   /* initialize global resource manager once */
   if (!gl_resource_manager.initialized) {
     GAME_LOGF("creating gl_resource_manager");
@@ -686,8 +768,8 @@ u0 request_gl_resource(
   if (*_handle != NULL) {
 #ifdef GAME_DEBUG
     GAME_LOGF("handle already in use by client");
-    assert(str_hash_table_contains(table, resource_data->resource_name));
-    assert(
+    GAME_ASSERT(str_hash_table_contains(table, resource_data->resource_name));
+    GAME_ASSERT(
       str_hash_table_get_index(table, resource_data->resource_name) ==
       (*_handle)->hashed_resource_index
     );
@@ -714,7 +796,7 @@ u0 request_gl_resource(
       resource_data->resource_name
     );
     /* handle NULL but resource exists already */
-    assert(str_hash_table_contains(
+    GAME_ASSERT(str_hash_table_contains(
       handle_pointer_table,
       resource_data->resource_name
     ));
@@ -723,7 +805,7 @@ u0 request_gl_resource(
       *(gl_resource_handle *)
         str_hash_table_at(handle_pointer_table, resource_data->resource_name);
 
-    assert(*_handle);
+    GAME_ASSERT(*_handle);
     GAME_LOGF(
       "handle: index %u internal handle: %u",
       (*_handle)->hashed_resource_index,
@@ -742,7 +824,7 @@ u0 request_gl_resource(
   const GLuint gl_handle = impl_create_gl_resource(resource_data);
 
   /* make sure handle pointer table was properly cleared before */
-  assert(
+  GAME_ASSERT(
     !str_hash_table_contains(handle_pointer_table, resource_data->resource_name)
   );
 
@@ -775,7 +857,13 @@ u0 destroy_gl_resource(
   static str_hash_table *const handle_pointer_table =
     &gl_resource_manager.handle_pointers;
 
-  assert(gl_resource_manager.initialized);
+  GAME_ASSERT(gl_resource_manager.initialized);
+  GAME_ASSERT(resource_data->resource_name);
+  GAME_ASSERT(
+    resource_data->desc.dummy.creation_info_type !=
+    RESOURCE_CREATION_INFO_TYPE_INVALID
+  );
+
   GAME_LOGF("destroy_resource() on %s", resource_data->resource_name);
 
   if (!*_handle) {
@@ -783,22 +871,22 @@ u0 destroy_gl_resource(
     return;
   }
 
-  assert(str_hash_table_contains(table, resource_data->resource_name));
-  assert(
+  GAME_ASSERT(str_hash_table_contains(table, resource_data->resource_name));
+  GAME_ASSERT(
     str_hash_table_get_index(table, resource_data->resource_name) ==
     (*_handle)->hashed_resource_index
   );
 
   resource_table_slot *resource_slot =
     str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
-  assert(resource_slot->ref_count > 0);
+  GAME_ASSERT(resource_slot->ref_count > 0);
   --resource_slot->ref_count;
 
   if (resource_slot->ref_count == 0) {
     /* TODO: implement deletion postpone callback */
     if (true) {
       /* free the main table slot */
-      assert(str_hash_table_contains(
+      GAME_ASSERT(str_hash_table_contains(
         handle_pointer_table,
         resource_data->resource_name
       ));

@@ -100,6 +100,7 @@ STBDDEF void stb_compress_bc5_block(
 // #define STB_DXT_USE_ROUNDING_BIAS
 
 #include <stdlib.h>
+#include <string.h>
 
 #if !defined(STBD_FABS)
 #include <math.h>

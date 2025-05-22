@@ -19,6 +19,18 @@ loaded_texture load_texture_from_file(
   GLenum _wrap_mode
 );
 
-u0 free_texture(u8 *data);
+u0 compress_rgba_dxt1(
+  u8 *const __restrict _dst,
+  const u8 *const __restrict _src,
+  usize width,
+  usize height
+);
+
+u0 compress_rgba_dxt5(
+  u8 *const __restrict _dst,
+  const u8 *const __restrict _src,
+  usize width,
+  usize height
+);
 
 #endif // RENDERER_INTERNAL_LOAD_IMAGE_TEXTURE_H_

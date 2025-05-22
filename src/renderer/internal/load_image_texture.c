@@ -8,7 +8,7 @@
 /*
 call this on RGB textures with no alpha
 */
-inline u0 compress_rgba_dxt1(
+u0 compress_rgba_dxt1(
   u8 *const __restrict _dst,
   const u8 *const __restrict _src,
   usize width,
@@ -54,7 +54,7 @@ inline u0 compress_rgba_dxt1(
 /*
 call this on RGBA textures WITH alpha
 */
-inline u0 compress_rgba_dxt5(
+u0 compress_rgba_dxt5(
   u8 *const __restrict _dst,
   const u8 *const __restrict _src,
   usize width,
@@ -169,6 +169,7 @@ loaded_texture load_texture_from_file(
 
   if (!_compress) goto no_compress;
 
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   switch (format) {
   case GL_RGB: {
     const usize total_size = ((new_size_x + 3) / 4) * ((new_size_y + 3) / 4) *
@@ -218,7 +219,6 @@ loaded_texture load_texture_from_file(
   }
   no_compress:
   default: {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(
       GL_TEXTURE_2D,
       0,
@@ -230,10 +230,10 @@ loaded_texture load_texture_from_file(
       GL_UNSIGNED_BYTE,
       scaled_image_data
     );
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     break;
   }
   }
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
   glGenerateMipmap(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, _wrap_mode);
