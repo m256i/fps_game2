@@ -20,7 +20,7 @@ c_compiler_args = [
   '-mtune=native',
   '-fomit-frame-pointer',
   '-ffast-math',
-  meson.project_source_root() + '/libftrace.dll',
+  '-fplugin=' + meson.project_source_root() + '/libftrace.dll',
 ]
 
 # Normalize paths

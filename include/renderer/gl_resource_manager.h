@@ -20,7 +20,6 @@ typedef enum {
   RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
-  RESOURCE_CREATION_INFO_TYPE_INDEX_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_SHADER,
   RESOURCE_CREATION_INFO_TYPE_SHADER_STORAGE_BUFFER,
   RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER,
@@ -59,13 +58,6 @@ typedef struct {
   /* mutable */
   u8                    *vertex_data;
 } vertex_buffer_creation_info;
-
-typedef struct {
-  /* this NEEDS to be the first element */
-  u32     creation_info_type;
-  GLenum  index_type;
-  GLsizei index_count;
-} index_buffer_creation_info;
 
 typedef struct {
   GLenum      type;
@@ -173,7 +165,6 @@ typedef struct {
     frame_buffer_creation_info  frame_buffer;
     render_buffer_creation_info render_buffer;
     vertex_buffer_creation_info vertex_buffer;
-    index_buffer_creation_info  index_buffer;
     shader_creation_info        shader;
     ssbo_creation_info          ssbo;
     ubo_creation_info           ubo;
