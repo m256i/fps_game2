@@ -28,6 +28,14 @@ typedef enum {
   RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER,
 } gl_resource_ci_type;
 
+/*
+TODOLIST when changing one of these structs:
+  if data needs deep copy:
+    - update case in create_persistent_resource_data()
+    - update case in destroy_persistent_resource_data()
+  update case in resource_data_eq()
+*/
+
 typedef struct {
   /* this NEEDS to be the first element */
   u32 creation_info_type;
@@ -39,6 +47,8 @@ typedef struct {
   GLenum internal_format;
   usize  width;
   usize  height;
+  bool   multisample;
+  usize  sample_count;
 } render_buffer_creation_info;
 
 typedef struct {
@@ -55,8 +65,11 @@ typedef struct {
   usize                  num_attributes;
   u32                    raw_size;
   GLenum                 buffer_usage;
+  GLenum                 index_type;
+  usize                  index_count;
   /* mutable */
   u8                    *vertex_data;
+  u8                    *index_data;
 } vertex_buffer_creation_info;
 
 typedef struct {
@@ -96,12 +109,20 @@ typedef struct {
 
 typedef struct {
   /* this NEEDS to be the first element */
-  u32 creation_info_type;
+  u32    creation_info_type;
+  usize  byte_size;
+  usize  binding_point;
+  GLenum usage;
+  u8    *data;
 } ssbo_creation_info;
 
 typedef struct {
   /* this NEEDS to be the first element */
-  u32 creation_info_type;
+  u32    creation_info_type;
+  usize  byte_size;
+  usize  binding_point;
+  GLenum usage;
+  u8    *data;
 } ubo_creation_info;
 
 typedef struct {
@@ -140,6 +161,8 @@ typedef struct {
   usize  byte_size;
   u8    *data;
   GLenum usage;
+  /* PIXEL_PACK if true; PIXEL_UNPACK if false */
+  bool   pack;
 } pixel_buffer_creation_info;
 
 /*
@@ -205,38 +228,6 @@ typedef struct {
 
 /* global instance because gl is also shared state */
 extern gl_resource_manager_class gl_resource_manager;
-
-inline usize gl_type_to_size(GLenum _gl_type) {
-  switch (_gl_type) {
-  case GL_UNSIGNED_BYTE:  return sizeof(GLubyte);
-  case GL_BYTE:           return sizeof(GLbyte);
-  case GL_UNSIGNED_SHORT: return sizeof(GLushort);
-  case GL_SHORT:          return sizeof(GLshort);
-  case GL_UNSIGNED_INT:   return sizeof(GLuint);
-  case GL_INT:            return sizeof(GLint);
-  case GL_FIXED:          return sizeof(GLfixed);
-  case GL_FLOAT:          return sizeof(GLfloat);
-  case GL_HALF_FLOAT:     return sizeof(GLhalf);
-  case GL_DOUBLE:         return sizeof(GLdouble);
-  default:                assert(false);
-  }
-}
-
-inline const char *gl_type_to_str(GLenum _gl_type) {
-  switch (_gl_type) {
-  case GL_UNSIGNED_BYTE:  return "GL_UNSIGNED_BYTE";
-  case GL_BYTE:           return "GL_BYTE";
-  case GL_UNSIGNED_SHORT: return "GL_UNSIGNED_SHORT";
-  case GL_SHORT:          return "GL_SHORT";
-  case GL_UNSIGNED_INT:   return "GL_UNSIGNED_INT";
-  case GL_INT:            return "GL_INT";
-  case GL_FIXED:          return "GL_FIXED";
-  case GL_FLOAT:          return "GL_FLOAT";
-  case GL_HALF_FLOAT:     return "GL_HALF_FLOAT";
-  case GL_DOUBLE:         return "GL_DOUBLE";
-  default:                assert(false);
-  }
-}
 
 u0 request_gl_resource(
   gl_resource_data *const resource_data,

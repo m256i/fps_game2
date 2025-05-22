@@ -51,10 +51,12 @@ will almost certainly lead to a race condition
 #define GASYNC_CALLBACK
 
 #ifdef GAME_DEBUG
+#define GAME_ASSERT(_expr)  assert(_expr)
 #define GAME_LOGF(...)      log_info(__VA_ARGS__)
 #define GAME_WARNF(...)     log_warn(__VA_ARGS__)
 #define GAME_CRITICALF(...) log_error(__VA_ARGS__)
 #else
+#define GAME_ASSERT(_expr)  (u0)0
 #define GAME_LOGF(...)      (u0)0
 #define GAME_WARNF(...)     log_warn(__VA_ARGS__)
 #define GAME_CRITICALF(...) log_error(__VA_ARGS__)
