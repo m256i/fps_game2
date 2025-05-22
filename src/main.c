@@ -42,7 +42,6 @@ const char *fragment_shader_src = "#version 460 core\n"
 GLint offsetX_loc;
 GLint offsetY_loc;
 u64 rendered_frames = 0;
-GLuint vao, vbo;
 GLuint program;
 
 gl_resource_handle rh = {0};
@@ -173,9 +172,9 @@ int main(u0) {
     window_run_render_proc();
   }
 
+  destroy_gl_resource(&rd, &rh);
+
   glDeleteProgram(program);
-  glDeleteBuffers(1, &vbo);
-  glDeleteVertexArrays(1, &vao);
 
   destroy_global_window();
   fclose(lf);
