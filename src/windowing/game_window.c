@@ -100,6 +100,28 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
   }
 }
 
+u0 APIENTRY debug_callback(
+  GLenum        source,
+  GLenum        type,
+  GLuint        id,
+  GLenum        severity,
+  GLsizei       length,
+  const GLchar *message,
+  const void   *userParam
+) {
+  GAME_LOGF(
+    "GL_MESSAGE: %s type = 0x%x, severity = 0x%x, message = %s",
+    (type == GL_DEBUG_TYPE_ERROR         ? "** GL_ERROR **"
+     : GL_DEBUG_TYPE_PERFORMANCE         ? "GL_DEBUG_TYPE_PERFORMANCE"
+     : GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR  ? "GL_DEBUG_TYPE_UB"
+     : GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR ? "GL_DEBUG_TYPE_DEPRECATED"
+                                         : ""),
+    type,
+    severity,
+    message
+  );
+}
+
 u0 create_gl_context(u0) {
   RGFW_window *tmp_window = RGFW_createWindow(
     "opengl_context_window",
@@ -114,6 +136,12 @@ u0 create_gl_context(u0) {
     exit(1);
   }
 
+#ifdef GAME_DEBUG
+  glEnable(GL_DEBUG_OUTPUT);
+  glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+  glDebugMessageCallback(debug_callback, 0);
+#endif
+
   GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
 }
 
@@ -127,8 +155,7 @@ u0 create_global_window(
   memset(global_window, 0, sizeof *global_window);
 
   RGFW_window *win;
-
-  RGFW_area prim_monitor_size = RGFW_getScreenSize();
+  RGFW_area    prim_monitor_size = RGFW_getScreenSize();
   if (_w == 0) {
     _w = prim_monitor_size.w;
   }

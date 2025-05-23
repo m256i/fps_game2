@@ -32,12 +32,14 @@ typedef struct {
     *vk_wait_semaphores;   // signaled by GL, waited by Vk  [image_count] malloc
   VkSemaphore
     *vk_signal_semaphores; // signaled by Vk, waited by GL  [image_count] malloc
+  VkSemaphore *vk_present_semaphores; // signaled by Vk, waited by Preseting
+                                      // engine  [image_count] malloc
   /* dummy gl names for the shared semaphores that reference the shared ones */
-  GLuint *gl_wait_semaphores;   // [image_count] malloc
-  GLuint *gl_signal_semaphores; // [image_count] malloc
+  GLuint      *gl_wait_semaphores;   // [image_count] malloc
+  GLuint      *gl_signal_semaphores; // [image_count] malloc
   /* external win32 handles for the shared state */
-  HANDLE *wait_handles;
-  HANDLE *sig_handles;
+  HANDLE      *wait_handles;
+  HANDLE      *sig_handles;
 } vk_sc_ringbuf;
 /*
 vulkan data for the main client window
