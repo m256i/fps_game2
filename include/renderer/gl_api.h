@@ -17,7 +17,7 @@ inline usize gl_type_to_size(GLenum _gl_type) {
   case GL_FLOAT:          return sizeof(GLfloat);
   case GL_HALF_FLOAT:     return sizeof(GLhalf);
   case GL_DOUBLE:         return sizeof(GLdouble);
-  default:                assert(false);
+  default:                GAME_ASSERT(false);
   }
 }
 
@@ -33,7 +33,7 @@ inline const char *gl_type_to_str(GLenum _gl_type) {
   case GL_FLOAT:          return "GL_FLOAT";
   case GL_HALF_FLOAT:     return "GL_HALF_FLOAT";
   case GL_DOUBLE:         return "GL_DOUBLE";
-  default:                assert(false);
+  default:                GAME_ASSERT(false);
   }
 }
 
