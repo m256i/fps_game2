@@ -780,10 +780,6 @@ u0 vulkan_present(vk_context *ctx) {
     CHECK_VK(vkQueuePresentKHR(ctx->vk_queue, &presentInfo), "couldnt aqcuire fullscreen exclusive mode after refocusing");
   }
 
-  /* wait CPU here for completion since we manually increment the frame index after */
-  vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[rb->current_index], VK_TRUE, UINT64_MAX);
-  vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[rb->current_index]);
-
   /* make GL wait for the blit operation to finish */
   GL_CALL(glWaitSemaphoreEXT(
     rb->gl_wait_semaphores[rb->current_index], 
@@ -791,6 +787,10 @@ u0 vulkan_present(vk_context *ctx) {
     &rb->shared_fbos[rb->current_index].texture_handle, 
     (GLenum[]){GL_LAYOUT_COLOR_ATTACHMENT_EXT}
   ));
+
+  /* wait CPU here for completion since we manually increment the frame index after */
+  vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[rb->current_index], VK_TRUE, UINT64_MAX);
+  vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[rb->current_index]);
 
   rb->current_index = (rb->current_index + 1) % rb->count_fbos;
 }
