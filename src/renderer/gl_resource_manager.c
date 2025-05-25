@@ -329,6 +329,8 @@ bool resource_data_eq(
   return same_info_type && same_name && same_desc;
 }
 
+inline bool is_valid_internal_format(GLenum _if) {}
+
 inline GLuint create_gl_fbo(u0) {
   GLuint handle = 0;
   glGenFramebuffers(1, &handle);
