@@ -57,6 +57,7 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   ctx->swapchain.current_index = 0;
   ctx->swapchain.vk_wait_semaphores     = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   ctx->swapchain.vk_signal_semaphores   = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+  ctx->swapchain.vk_acquire_semaphores  = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   ctx->swapchain.vk_present_semaphores  = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   ctx->swapchain.gl_wait_semaphores     = TRACKED_MALLOC(sizeof(GLuint) * ctx->swapchain.count_fbos);
   ctx->swapchain.gl_signal_semaphores   = TRACKED_MALLOC(sizeof(GLuint) * ctx->swapchain.count_fbos);
@@ -65,6 +66,8 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
 
   memset(ctx->swapchain.vk_wait_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   memset(ctx->swapchain.vk_signal_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+  memset(ctx->swapchain.vk_acquire_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
+  memset(ctx->swapchain.vk_present_semaphores, 0, sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
 
   memset(ctx->swapchain.gl_wait_semaphores, 0, sizeof(GLuint) * ctx->swapchain.count_fbos);
   memset(ctx->swapchain.gl_signal_semaphores, 0, sizeof(GLuint) * ctx->swapchain.count_fbos);
@@ -83,7 +86,9 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   for (usize i = 0; i < ctx->swapchain.count_fbos; i++) {
     ctx->swapchain.vk_wait_semaphores[i] = create_exportable_semaphore(ctx->vk_device);
     ctx->swapchain.vk_signal_semaphores[i] = create_exportable_semaphore(ctx->vk_device);
+
     ctx->swapchain.vk_present_semaphores[i] = create_intenal_semaphore(ctx->vk_device);
+    ctx->swapchain.vk_acquire_semaphores[i] = create_intenal_semaphore(ctx->vk_device);
 
     VkSemaphoreGetWin32HandleInfoKHR handleInfo = {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
@@ -381,7 +386,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   GAME_LOGF("swapchain length: %d", swapchain_length);
 
   const VkSurfaceFormatKHR format = get_viable_surface_format(&phys_dev, &surface);
-  const VkPresentModeKHR present_mode = _rmode == RENDER_MODE_VSYNC ? get_viable_present_mode(&phys_dev, &surface, VK_PRESENT_MODE_FIFO_KHR) : get_viable_present_mode(&phys_dev, &surface, VK_PRESENT_MODE_IMMEDIATE_KHR);
+  const VkPresentModeKHR present_mode = _rmode == RENDER_MODE_VSYNC ? get_viable_present_mode(&phys_dev, &surface, VK_PRESENT_MODE_FIFO_RELAXED_KHR) : get_viable_present_mode(&phys_dev, &surface, VK_PRESENT_MODE_IMMEDIATE_KHR);
 
   _context->surface_format = format;
 
@@ -579,7 +584,7 @@ usize bind_vulkan_surface(vk_context *ctx) {
     ctx->vk_device, 
     ctx->vk_swapchain, 
     UINT64_MAX, 
-    rb->vk_signal_semaphores[rb->current_index], /* this is linked to opengls wait semaphore */
+    rb->vk_acquire_semaphores[rb->current_index], /* this is linked to opengls wait semaphore */
     VK_NULL_HANDLE, 
     &image_index
   ), "vkAcquireNextImageKHR failed");
@@ -733,15 +738,20 @@ u0 vulkan_present(vk_context *ctx) {
   vkEndCommandBuffer(cmd);
 
   /* we dont need to wait for anything on render */
+  const static u32 wate_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   const VkSubmitInfo submit = {
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
       .waitSemaphoreCount = 1,
-      .pWaitSemaphores = &rb->vk_signal_semaphores[rb->current_index],
-      .pWaitDstStageMask = 0,
+      .pWaitSemaphores = &rb->vk_acquire_semaphores[rb->current_index],
+      .pWaitDstStageMask = &wate_stage,
       .commandBufferCount = 1,
       .pCommandBuffers = &cmd,
-      .signalSemaphoreCount = 1, /* we make the presentation engine wait for our "present_semaphore" */
-      .pSignalSemaphores = &rb->vk_present_semaphores[rb->current_index]
+      /* 
+      we make the presentation engine wait for our "present_semaphore" 
+      and let OpenGL know that it can use this image again
+      */
+      .signalSemaphoreCount = 2, 
+      .pSignalSemaphores = (VkSemaphore[]){rb->vk_present_semaphores[rb->current_index], rb->vk_signal_semaphores[rb->current_index]}
   };
 
   vkQueueSubmit(ctx->vk_queue, 1, &submit, ctx->inflight_fences[rb->current_index]);
@@ -773,6 +783,14 @@ u0 vulkan_present(vk_context *ctx) {
   /* wait CPU here for completion since we manually increment the frame index after */
   vkWaitForFences(ctx->vk_device, 1, &ctx->inflight_fences[rb->current_index], VK_TRUE, UINT64_MAX);
   vkResetFences(ctx->vk_device, 1, &ctx->inflight_fences[rb->current_index]);
+
+  /* make GL wait for the blit operation to finish */
+  GL_CALL(glWaitSemaphoreEXT(
+    rb->gl_wait_semaphores[rb->current_index], 
+    0, NULL, 1, 
+    &rb->shared_fbos[rb->current_index].texture_handle, 
+    (GLenum[]){GL_LAYOUT_COLOR_ATTACHMENT_EXT}
+  ));
 
   rb->current_index = (rb->current_index + 1) % rb->count_fbos;
 }
@@ -836,6 +854,18 @@ u0 destroy_vulkan_context(vk_context *_context)
       }
     }
     TRACKED_FREE(rb->vk_signal_semaphores);
+  }
+
+  GAME_LOGF("destroyed vk signal semaphores");
+
+  if (rb->vk_acquire_semaphores) {
+    for (usize i = 0; i < rb->count_fbos; ++i) {
+      if (rb->vk_acquire_semaphores[i]) {
+        GAME_LOGF("destroyed vulkan acquire semaphore %d", i);
+        vkDestroySemaphore(device, rb->vk_acquire_semaphores[i], NULL);
+      }
+    }
+    TRACKED_FREE(rb->vk_acquire_semaphores);
   }
 
   GAME_LOGF("destroyed vk signal semaphores");

@@ -24,16 +24,18 @@ typedef struct {
 } shared_fbo;
 /* a "ringbuffer of shared textures/fbos" */
 typedef struct {
-  shared_fbo *shared_fbos;
-  usize       count_fbos;
-  usize       current_index;
+  shared_fbo  *shared_fbos;
+  usize        count_fbos;
+  usize        current_index;
   /* vulkan internal semaphores */
-  VkSemaphore
-    *vk_wait_semaphores;   // signaled by GL, waited by Vk  [image_count] malloc
-  VkSemaphore
-    *vk_signal_semaphores; // signaled by Vk, waited by GL  [image_count] malloc
-  VkSemaphore *vk_present_semaphores; // signaled by Vk, waited by Preseting
-                                      // engine  [image_count] malloc
+  // signaled by GL, waited by Vk  [image_count] malloc
+  VkSemaphore *vk_wait_semaphores;
+  // signaled by Vk, waited by GL  [image_count] malloc
+  VkSemaphore *vk_signal_semaphores;
+  // signaled by Vk, waited by Preseting engine  [image_count] malloc
+  VkSemaphore *vk_present_semaphores;
+  //
+  VkSemaphore *vk_acquire_semaphores;
   /* dummy gl names for the shared semaphores that reference the shared ones */
   GLuint      *gl_wait_semaphores;   // [image_count] malloc
   GLuint      *gl_signal_semaphores; // [image_count] malloc
@@ -71,7 +73,6 @@ typedef struct {
 #ifdef GAME_DEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
-
 } vk_context;
 
 // clang-format off
