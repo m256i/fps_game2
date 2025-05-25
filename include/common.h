@@ -8,7 +8,7 @@
 
 /* game client build version */
 #define GAME_CLIENT_VER 0.1a
-#define GAME_DEBUG
+// #define GAME_DEBUG
 
 /* macro impl stuff */
 #define STRINGIFY(x)              #x

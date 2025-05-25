@@ -21,7 +21,7 @@
 #endif
 
 // clang-format off
-static VkSemaphore create_exportable_semaphore(VkDevice _device) {
+VkSemaphore create_exportable_semaphore(VkDevice _device) {
   VkSemaphoreCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, 
     .pNext = &(VkSemaphoreTypeCreateInfo){
@@ -39,7 +39,7 @@ static VkSemaphore create_exportable_semaphore(VkDevice _device) {
   return semaphore;
 }
 
-static VkSemaphore create_intenal_semaphore(VkDevice _device) {
+VkSemaphore create_intenal_semaphore(VkDevice _device) {
   VkSemaphoreCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, 
     .pNext = &(VkSemaphoreTypeCreateInfo){
@@ -53,7 +53,7 @@ static VkSemaphore create_intenal_semaphore(VkDevice _device) {
   return semaphore;
 }
 
-static u0 initialize_ringbuffer_sync(vk_context *ctx) {
+u0 initialize_ringbuffer_sync(vk_context *ctx) {
   ctx->swapchain.current_index = 0;
   ctx->swapchain.vk_wait_semaphores     = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   ctx->swapchain.vk_signal_semaphores   = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
@@ -121,7 +121,7 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   }
 }
 
-static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface, VkPresentModeKHR  _prefered_mode) {
+VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface, VkPresentModeKHR  _prefered_mode) {
   u32 present_mode_count;
   vkGetPhysicalDeviceSurfacePresentModesKHR(*_phys_dev, *_surface, &present_mode_count, NULL);
   if (!present_mode_count) {
@@ -141,7 +141,7 @@ static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkS
   exit(1);
 }
 
-static u32 find_mem_type(u32 typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
+u32 find_mem_type(u32 typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
   VkPhysicalDeviceMemoryProperties memProperties;
   vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -154,7 +154,7 @@ static u32 find_mem_type(u32 typeFilter, VkMemoryPropertyFlags properties, VkPhy
   exit(1);
 }
 
-static VkSurfaceFormatKHR get_viable_surface_format(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface) {
+VkSurfaceFormatKHR get_viable_surface_format(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface) {
   u32 format_count;
   vkGetPhysicalDeviceSurfaceFormatsKHR(*_phys_dev, *_surface, &format_count, NULL);
   if (!format_count) {
@@ -373,7 +373,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
 
   GAME_LOGF("new vulkan present screen size: (%d, %d)", _screen_w, _screen_h);
 
-  if (!surface_caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+  if (!(surface_caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)) {
     GAME_LOGF("VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR not supported");
     exit(1);
   }
@@ -497,23 +497,10 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     HANDLE win_handle;
     vkGetMemoryWin32HandleKHR(device, &handle_info, &win_handle);
 
-    GLenum err = glGetError();
-
     shared_fbo sfbo = {0};
-    glCreateMemoryObjectsEXT(1, &sfbo.memory_object);
-    
-    err = glGetError();
-    if (err != 0) {
-      GAME_CRITICALF("glCreateMemoryObjectsEXT failed with error %u", err);
-      exit(1);
-    }
 
-    glImportMemoryWin32HandleEXT(sfbo.memory_object, (GLsizeiptr)req.size, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, win_handle);
-    err = glGetError();
-    if (err != 0) {
-      GAME_CRITICALF("glImportMemoryWin32HandleEXT failed with error %u", err);
-      exit(1);
-    }
+    GL_CALL(glCreateMemoryObjectsEXT(1, &sfbo.memory_object));
+    GL_CALL(glImportMemoryWin32HandleEXT(sfbo.memory_object, (GLsizeiptr)req.size, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, win_handle));
 
     GLenum gl_format;
     switch (format.format) {
@@ -522,10 +509,11 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     default: GAME_LOGF("Unsupported format"); exit(1);
     }
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &sfbo.texture_handle);
-    glTextureStorageMem2DEXT(sfbo.texture_handle, 1, gl_format, _screen_w, _screen_h, sfbo.memory_object, 0);
-    glCreateFramebuffers(1, &sfbo.fbo_handle);
-    glNamedFramebufferTexture(sfbo.fbo_handle, GL_COLOR_ATTACHMENT0, sfbo.texture_handle, 0);
+    GL_CALL(glCreateTextures(GL_TEXTURE_2D, 1, &sfbo.texture_handle));
+    GL_CALL(glTextureStorageMem2DEXT(sfbo.texture_handle, 1, gl_format, _screen_w, _screen_h, sfbo.memory_object, 0));
+    GL_CALL(glCreateFramebuffers(1, &sfbo.fbo_handle));
+    GL_CALL(glNamedFramebufferTexture(sfbo.fbo_handle, GL_COLOR_ATTACHMENT0, sfbo.texture_handle, 0));
+   
     GLenum status = glCheckNamedFramebufferStatus(sfbo.fbo_handle, GL_DRAW_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) { GAME_LOGF("FBO incomplete: %u", status); }
     _context->swapchain.shared_fbos[i] = sfbo;
@@ -804,18 +792,16 @@ u0 destroy_vulkan_context(vk_context *_context)
   }
 
   vkDeviceWaitIdle(_context->vk_device);
-
   GAME_LOGF("destroying vk_context");
-  
   VkDevice device = _context->vk_device;
   
   vk_sc_ringbuf *rb = &_context->swapchain;
   if (rb->shared_fbos) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
       shared_fbo *fbo = &rb->shared_fbos[i];
-      if (fbo->fbo_handle) glDeleteFramebuffers(1, &fbo->fbo_handle);
-      if (fbo->texture_handle) glDeleteTextures(1, &fbo->texture_handle);
-      if (fbo->memory_object) glDeleteMemoryObjectsEXT(1, &fbo->memory_object);
+      if (fbo->fbo_handle) GL_CALL(glDeleteFramebuffers(1, &fbo->fbo_handle));
+      if (fbo->texture_handle) GL_CALL(glDeleteTextures(1, &fbo->texture_handle));
+      if (fbo->memory_object) GL_CALL(glDeleteMemoryObjectsEXT(1, &fbo->memory_object));
     }
     TRACKED_FREE(rb->shared_fbos);
   }

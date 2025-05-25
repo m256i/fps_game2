@@ -120,7 +120,6 @@ u32 *make_mandelbrot_image(u0) {
 
 int main(u0) {
   setup_stacktrace();
-
   FILE *lf = fopen("./game_logs.txt", "w");
   if (!lf) {
     puts("CRITICAL ERROR: unable to open log-file! exiting");
@@ -128,65 +127,22 @@ int main(u0) {
   }
   log_add_fp(lf, LOG_TRACE);
   GAME_LOGF("initialising game client version %s", GAME_CLIENT_VER_STR);
+  /* wont get printed in release mode */
+  GAME_LOGF("engine (ver: " GAME_CLIENT_VER_STR ")  running in debug mode");
 
   // unit_test_mathlib();
 
   init_mathlib();
 
-  vec3 a = make_vec3(1, 2, 3);
-  vec3 b = make_vec3(3, 2, 1);
-
-  volatile vec3 n0 = vec3_normalize(&a);
-  volatile vec3 n1 = vec3_normalize(&b);
-
-  printf("n0: %f %f %f\n", n0.x, n0.y, n0.z);
-  printf("n1: %f %f %f\n", n1.x, n1.y, n1.z);
-
-  volatile vec3 n2 = vec3_normalize_safe(&a);
-  volatile vec3 n3 = vec3_normalize_safe(&b);
-
-  printf("n2: %f %f %f\n", n2.x, n2.y, n2.z);
-  printf("n3: %f %f %f\n", n3.x, n3.y, n3.z);
-
   create_gl_context();
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
   float vertices[] = {
-    // top‑right
-    0.5f,
-    0.5f,
-    0.0f,
-    1.0f,
-    1.0f,
-    // bottom‑right
-    0.5f,
-    -0.5f,
-    0.0f,
-    1.0f,
-    0.0f,
-    // bottom‑left
-    -0.5f,
-    -0.5f,
-    0.0f,
-    0.0f,
-    0.0f,
-    // top‑left
-    -0.5f,
-    0.5f,
-    0.0f,
-    0.0f,
-    1.0f,
+    0.5f,  0.5f,  0.0f, 1.0f, 1.0f, 0.5f,  -0.5f, 0.0f, 1.0f, 0.0f,
+    -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
   };
 
-  unsigned int indices[] = {
-    // note that we start from 0!
-    0,
-    1,
-    3, // first triangle
-    1,
-    2,
-    3  // second triangle
-  };
+  unsigned int indices[] = {0, 1, 3, 1, 2, 3};
 
   u32 *testImageData = make_mandelbrot_image();
 
@@ -196,12 +152,12 @@ int main(u0) {
      .creation_info_type = RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER,
      .buffer_usage       = GL_STATIC_DRAW,
      .vertex_attributes  = (vertex_attribute_info[]){
-        (vertex_attribute_info) {
+        (vertex_attribute_info){
           .attribute_type   = GL_FLOAT,
           .attribute_count  = 3,
           .attribute_index  = 0
         },
-        (vertex_attribute_info) {
+        (vertex_attribute_info){
           .attribute_type   = GL_FLOAT,
           .attribute_count  = 2,
           .attribute_index  = 1
@@ -238,7 +194,7 @@ int main(u0) {
       .internal_format = GL_RGBA8,
       .wrap_mode = GL_REPEAT,
       .image_data = (u8*)testImageData,
-      .compress = false
+      .compress = true
     }
   };
   // clang-format on

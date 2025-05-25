@@ -8,11 +8,31 @@ output_name = 'a'
 output_dir = '..\\compiled'  # Relative to meson.build location
 build_dir_where = 'build'  # Relative to meson.build location
 
+# set to disable some optimizations enable detailed stacktraces, debug logs etc...
+DEBUGMODE = true
+
+c_compiler_args = []
+
+if DEBUGMODE == true
 # Compiler arguments
-c_compiler_args = [
+c_compiler_args += [
   '-Wall',
   '-Wextra',
   '-g',
+  '-static-libgcc', 
+  '-static-libstdc++',
+  '-O2',
+  '-march=native',
+  '-mtune=native',
+  '-fomit-frame-pointer',
+  '-ffast-math',
+  '-fplugin=' + meson.project_source_root() + '/libftrace.dll',
+  '-DGAME_DEBUG'
+]
+else
+c_compiler_args += [
+  '-Wall',
+  '-Wextra',
   '-static-libgcc', 
   '-static-libstdc++',
   '-O3',
@@ -20,8 +40,8 @@ c_compiler_args = [
   '-mtune=native',
   '-fomit-frame-pointer',
   '-ffast-math',
-  '-fplugin=' + meson.project_source_root() + '/libftrace.dll',
 ]
+endif
 
 # Normalize paths
 output_dir = output_dir.replace('/', '\\')

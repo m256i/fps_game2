@@ -66,7 +66,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
     return;
   }
 
-  pInfo = (TRACE_EVENT_INFO *)TRACKED_MALLOC(bufferSize);
+  pInfo = (TRACE_EVENT_INFO *)malloc(bufferSize);
   if (pInfo == NULL) {
     wprintf(L"Failed to allocate memory for TRACE_EVENT_INFO\n");
     return;
@@ -75,12 +75,12 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
   status = TdhGetEventInformation(pEvent, 0, NULL, pInfo, &bufferSize);
   if (status != ERROR_SUCCESS) {
     wprintf(L"TdhGetEventInformation failed: 0x%x\n", status);
-    TRACKED_FREE(pInfo);
+    free(pInfo);
     return;
   }
 
   if (pEvent->EventHeader.EventDescriptor.Channel != 0x11) {
-    TRACKED_FREE(pInfo);
+    free(pInfo);
     return;
   }
 
@@ -127,7 +127,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
   /* ...yes i know, but it changes between statements */
   if (flip_info_id != -1ul) {
     if (pEvent->EventHeader.EventDescriptor.Id != flip_info_id) {
-      TRACKED_FREE(pInfo);
+      free(pInfo);
       return;
     }
     for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
@@ -159,7 +159,7 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
             pname,
             status
           );
-          TRACKED_FREE(pInfo);
+          free(pInfo);
           return;
         }
         GAME_ASSERT(propertySize == sizeof(u32));
@@ -180,11 +180,10 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
 
         if (status != ERROR_SUCCESS) {
           wprintf(L"  %s: <Error retrieving value (0x%x)>\n", pname, status);
-          TRACKED_FREE(pInfo);
+          free(pInfo);
           return;
         }
 
-        u64 last;
         if (monitor_index == 0) {
           spsc_u64_16_clear(flip_queue);
           // GAME_LOGF("recieved Flip event from kernel: timestamp: %llu",
@@ -195,5 +194,5 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
       }
     }
   }
-  TRACKED_FREE(pInfo);
+  free(pInfo);
 }
