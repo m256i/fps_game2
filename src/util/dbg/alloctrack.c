@@ -13,7 +13,7 @@ typedef struct {
 } alloc_block;
 
 struct hashmap *alloc_map   = NULL;
-_Atomic bool    initialized = false;
+bool            initialized = false;
 pthread_mutex_t alloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static u64 user_hash(const u0 *item, u64 seed0, u64 seed1) {
@@ -28,7 +28,7 @@ int user_compare(const u0 *a, const u0 *b, u0 *udata) {
 }
 
 u0 init(u0) {
-  if (!atomic_load(&initialized)) {
+  if (!initialized) {
     alloc_map = hashmap_new(
       sizeof(alloc_block),
       10,
@@ -40,7 +40,7 @@ u0 init(u0) {
       NULL
     );
     atexit(dump_alloc_statistics);
-    atomic_store(&initialized, true);
+    initialized = true;
   }
 }
 
@@ -158,7 +158,7 @@ u0 tracked_aligned_free(u0 *_ptr, const char *_function) {
 }
 
 u0 dump_alloc_statistics(u0) {
-  if (!atomic_load(&initialized)) {
+  if (!initialized) {
     return;
   }
   pthread_mutex_lock(&alloc_mutex);

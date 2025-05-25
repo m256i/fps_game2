@@ -167,9 +167,8 @@ loaded_texture load_texture_from_file(
   glGenTextures(1, &handle);
   glBindTexture(GL_TEXTURE_2D, handle);
 
-  if (!_compress) goto no_compress;
-
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  if (!_compress) goto no_compress;
   switch (format) {
   case GL_RGB: {
     const usize total_size = ((new_size_x + 3) / 4) * ((new_size_y + 3) / 4) *

@@ -1,3 +1,4 @@
+#include "renderer/gl_api.h"
 #include <RGFW/RGFW.h>
 #include <common.h>
 #include <log/log.h>
@@ -62,16 +63,14 @@ bool render(u0) {
   float      mousepos_y  = (f32)mousepos.y / RGFW_getScreenSize().h;
   mousepos.y            /= RGFW_getScreenSize().h;
 
-  glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
-  glUseProgram(program);
-  glUniform1f(offsetX_loc, mousepos_x * 2.f - 1);
-  glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f);
-
-  glBindTexture(GL_TEXTURE, tex_handle->internal_handle);
-
-  glBindVertexArray(rh->internal_handle);
-  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
+  GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
+  GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+  GL_CALL(glUseProgram(program));
+  GL_CALL(glUniform1f(offsetX_loc, mousepos_x * 2.f - 1));
+  GL_CALL(glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f));
+  GL_CALL(glBindTexture(GL_TEXTURE_2D, tex_handle->internal_handle));
+  GL_CALL(glBindVertexArray(rh->internal_handle));
+  GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
   f64 ct   = RGFW_getTimeNS();
   // f64 dt = ct - old_time;

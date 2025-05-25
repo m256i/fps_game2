@@ -23,7 +23,7 @@ u0 init_render_timing_data(render_timing_data *data) {
 }
 
 const static f64 EWMA_ALPHA = 0.05; /* smoothing factor for mean and variance */
-const static f64 CONFIDENCE_Z = 2.27; /* z-score */
+const static f64 CONFIDENCE_Z = 2.32; /* z-score */
 
 #define LOGFILE_PATH    L"./engine_etw.etl"
 #define LOGSESSION_NAME L"game" GAME_CLIENT_VER_STR_L "_etw_consumer"
