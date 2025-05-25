@@ -1,9 +1,9 @@
 // peak shitcode incoming
-#include "renderer/gl_api.h"
-#include <windowing/vulkan_present.h>
-#include <glad/glad.h>
 #include <assert.h>
+#include <glad/glad.h>
 #include <util/dbg/alloctrack.h>
+#include <windowing/vulkan_present.h>
+#include <renderer/gl_api.h>
 
 #ifdef GAME_DEBUG
 
@@ -75,10 +75,10 @@ static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   GL_CALL(glGenSemaphoresEXT(ctx->swapchain.count_fbos, ctx->swapchain.gl_signal_semaphores));
 
   const char* exts = (const char*)glGetString(GL_EXTENSIONS);
-  assert(strstr(exts, "GL_EXT_semaphore")           != NULL);
-  assert(strstr(exts, "GL_EXT_semaphore_win32")     != NULL);
-  assert(strstr(exts, "GL_EXT_memory_object")       != NULL);
-  assert(strstr(exts, "GL_EXT_memory_object_win32") != NULL);
+  GAME_ASSERT(strstr(exts, "GL_EXT_semaphore")           != NULL);
+  GAME_ASSERT(strstr(exts, "GL_EXT_semaphore_win32")     != NULL);
+  GAME_ASSERT(strstr(exts, "GL_EXT_memory_object")       != NULL);
+  GAME_ASSERT(strstr(exts, "GL_EXT_memory_object_win32") != NULL);
 
   for (usize i = 0; i < ctx->swapchain.count_fbos; i++) {
     ctx->swapchain.vk_wait_semaphores[i] = create_exportable_semaphore(ctx->vk_device);
@@ -391,7 +391,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
       .hmonitor = MonitorFromWindow(_window_handle, MONITOR_DEFAULTTOPRIMARY)
   };
 
-  assert(win32Info.hmonitor != NULL);
+  GAME_ASSERT(win32Info.hmonitor != NULL);
 
   VkSurfaceFullScreenExclusiveInfoEXT fsInfo = {
       .sType               = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT,

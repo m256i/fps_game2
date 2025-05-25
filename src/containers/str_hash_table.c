@@ -6,8 +6,8 @@
 
 u0 str_hash_table_initialize(str_hash_table *const _table, usize _obj_size,
                              usize _obj_count) {
-  assert(!_table->initialized);
-  assert(_table && _obj_size && _obj_count);
+  GAME_ASSERT(!_table->initialized);
+  GAME_ASSERT(_table && _obj_size && _obj_count);
 
   str_indexer_initialize(&_table->str_hasher, _obj_count);
 
@@ -35,7 +35,7 @@ u0 str_hash_table_dbg_print(str_hash_table *const _table) {
 
 u32 str_hash_table_insert(str_hash_table *const _table, const char *_key,
                           u0 *_obj) {
-  assert(_table->initialized);
+  GAME_ASSERT(_table->initialized);
   u32 idx = str_indexer_contains(&_table->str_hasher, _key);
   /* new insert? */
   if (idx == UINT32_MAX) {
@@ -65,7 +65,7 @@ u32 str_hash_table_insert(str_hash_table *const _table, const char *_key,
 }
 
 u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
-  assert(_table->initialized);
+  GAME_ASSERT(_table->initialized);
   const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
 
   if (idx == UINT32_MAX) {
@@ -93,7 +93,7 @@ u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
 }
 
 u0 *str_hash_table_at(str_hash_table *const _table, const char *_key) {
-  assert(_table->initialized);
+  GAME_ASSERT(_table->initialized);
   const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
   if (idx == UINT32_MAX) {
     return NULL;
@@ -103,19 +103,19 @@ u0 *str_hash_table_at(str_hash_table *const _table, const char *_key) {
 }
 
 bool str_hash_table_contains(str_hash_table *const _table, const char *_key) {
-  assert(_table->initialized);
+  GAME_ASSERT(_table->initialized);
   const u32 idx = str_indexer_contains(&_table->str_hasher, _key);
   return idx != UINT32_MAX;
 }
 
 u32 str_hash_table_get_index(str_hash_table *const _table, const char *_key) {
-  assert(_table->initialized);
+  GAME_ASSERT(_table->initialized);
   return str_indexer_contains(&_table->str_hasher, _key);
 }
 
 u0 *str_hash_table_at_index(str_hash_table *const _table, u32 _index) {
-  assert(_table->initialized);
-  assert(_index < _table->obj_array_len);
+  GAME_ASSERT(_table->initialized);
+  GAME_ASSERT(_index < _table->obj_array_len);
 
   /* slot empty */
   if (!_table->buckets[_index].used) {
@@ -126,7 +126,7 @@ u0 *str_hash_table_at_index(str_hash_table *const _table, u32 _index) {
 }
 
 u0 str_hash_table_destroy(str_hash_table *const _table) {
-  assert(_table->initialized);
+  GAME_ASSERT(_table->initialized);
 
   for (usize i = 0; i != _table->obj_array_len; i++) {
     if (_table->buckets[i].data) {
