@@ -5,6 +5,118 @@
 #include <glad/glad.h>
 #include <common.h>
 
+inline bool is_valid_vertex_attrib_type(GLenum type) {
+  switch (type) {
+  case GL_BYTE:
+  case GL_UNSIGNED_BYTE:
+  case GL_SHORT:
+  case GL_UNSIGNED_SHORT:
+  case GL_INT:
+  case GL_UNSIGNED_INT:
+  case GL_HALF_FLOAT:
+  case GL_FLOAT:
+  case GL_DOUBLE:
+  case GL_FIXED:
+  case GL_INT_2_10_10_10_REV:
+  case GL_UNSIGNED_INT_2_10_10_10_REV:
+  case GL_UNSIGNED_INT_10F_11F_11F_REV: return true;
+  default:                              return false;
+  }
+}
+
+inline bool is_valid_image_fmt(GLenum format) {
+  switch (format) {
+  // Base formats
+  case GL_RED:
+  case GL_RG:
+  case GL_RGB:
+  case GL_RGBA:
+  case GL_BGR:
+  case GL_BGRA:
+
+  // Integer formats (used with integer internal formats)
+  case GL_RED_INTEGER:
+  case GL_RG_INTEGER:
+  case GL_RGB_INTEGER:
+  case GL_RGBA_INTEGER:
+  case GL_BGR_INTEGER:
+  case GL_BGRA_INTEGER:
+
+  // Luminance / Alpha (deprecated in core profile but valid in compat/OpenGL
+  // ES)
+  case GL_LUMINANCE:
+  case GL_LUMINANCE_ALPHA:
+  case GL_ALPHA:
+  case GL_INTENSITY:
+
+  // Depth and stencil
+  case GL_DEPTH_COMPONENT:
+  case GL_DEPTH_STENCIL:   return true;
+
+  default: return false;
+  }
+}
+
+inline bool is_valid_internal_image_fmt(GLenum format) {
+  switch (format) {
+  // Unsigned normalized color formats
+  case GL_R8:
+  case GL_RG8:
+  case GL_RGB8:
+  case GL_RGBA8:
+  case GL_SRGB8:
+  case GL_SRGB8_ALPHA8:
+
+  // Signed normalized color formats
+  case GL_R8_SNORM:
+  case GL_RG8_SNORM:
+  case GL_RGB8_SNORM:
+  case GL_RGBA8_SNORM:
+
+  // Integer formats
+  case GL_R8UI:
+  case GL_RG8UI:
+  case GL_RGB8UI:
+  case GL_RGBA8UI:
+  case GL_R8I:
+  case GL_RG8I:
+  case GL_RGB8I:
+  case GL_RGBA8I:
+
+  // Floating point formats
+  case GL_R16F:
+  case GL_RG16F:
+  case GL_RGB16F:
+  case GL_RGBA16F:
+  case GL_R32F:
+  case GL_RG32F:
+  case GL_RGB32F:
+  case GL_RGBA32F:
+
+  // Depth/stencil formats
+  case GL_DEPTH_COMPONENT16:
+  case GL_DEPTH_COMPONENT24:
+  case GL_DEPTH_COMPONENT32:
+  case GL_DEPTH_COMPONENT32F:
+  case GL_DEPTH24_STENCIL8:
+  case GL_DEPTH32F_STENCIL8:
+
+  // Packed formats
+  case GL_RGB10_A2:
+  case GL_RGB10_A2UI:
+  case GL_R11F_G11F_B10F:
+
+  // compressed formats (if extensions are available)
+  case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+  case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+
+  // Stencil formats (for renderbuffers)
+  case GL_STENCIL_INDEX8: return true;
+
+  default: return false;
+  }
+}
+
 inline usize gl_type_to_size(GLenum _gl_type) {
   switch (_gl_type) {
   case GL_UNSIGNED_BYTE:  return sizeof(GLubyte);

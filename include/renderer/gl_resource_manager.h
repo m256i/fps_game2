@@ -13,8 +13,13 @@
 #include <util/array_copy.h>
 #include <util/dbg/alloctrack.h>
 
-#define MAX_RESOURCE_NAME_STRLEN 0xff
-#define MAX_RESOURCE_PATH_STRLEN 0xff
+#define MAX_RESOURCE_NAME_STRLEN   0xff
+#define MAX_RESOURCE_PATH_STRLEN   0xff
+#define MAX_VERTEX_COUNT           10000000
+#define MAX_VERTEX_ATTRIB_COUNT    100
+#define MAX_IMAGE_SIZEX            10000
+#define MAX_IMAGE_SIZEY            10000
+#define MAX_PIXEL_BUFFER_BYTE_SIZE MAX_IMAGE_SIZEX *MAX_IMAGE_SIZEY
 
 typedef enum {
   RESOURCE_CREATION_INFO_TYPE_INVALID,

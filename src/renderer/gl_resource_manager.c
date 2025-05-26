@@ -1,3 +1,4 @@
+#include "common.h"
 #include "containers/str_hash_table.h"
 #include <renderer/gl_api.h>
 #include <renderer/gl_resource_manager.h>
@@ -11,11 +12,12 @@ gl_resource_manager_class gl_resource_manager = {0};
 gl_resource_data
 create_persistent_resource_data(const gl_resource_data *const _temp) {
   gl_resource_data out = {0};
-  GAME_LOGF("doig deep copy on resource %s %d", _temp->resource_name, _temp->desc.dummy.creation_info_type);
+  GAME_LOGF("doig deep copy on resource %s %d", _temp->resource_name,
+            _temp->desc.dummy.creation_info_type);
 
   /* copy the name into a persistent buff */
   out.resource_name =
-    strnclone_s(_temp->resource_name, MAX_RESOURCE_NAME_STRLEN);
+      strnclone_s(_temp->resource_name, MAX_RESOURCE_NAME_STRLEN);
 
   /* important, only shallow copy since our handle handles memory */
   out.impl_storage = _temp->impl_storage;
@@ -40,23 +42,22 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
   }
   case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
     memcpy(&out.desc, &_temp->desc, sizeof out.desc);
-    out.desc.vertex_buffer.vertex_attributes = memclone(
-      _temp->desc.vertex_buffer.vertex_attributes,
-      sizeof *_temp->desc.vertex_buffer.vertex_attributes *
-        _temp->desc.vertex_buffer.num_attributes
-    );
+    out.desc.vertex_buffer.vertex_attributes =
+        memclone(_temp->desc.vertex_buffer.vertex_attributes,
+                 sizeof *_temp->desc.vertex_buffer.vertex_attributes *
+                     _temp->desc.vertex_buffer.num_attributes);
     out.desc.vertex_buffer.vertex_data = NULL;
-    out.desc.vertex_buffer.index_data  = NULL;
+    out.desc.vertex_buffer.index_data = NULL;
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_SHADER: {
     memcpy(&out.desc, &_temp->desc, sizeof out.desc);
-    const shader_creation_info *inptr  = &_temp->desc.shader;
-    shader_creation_info       *outptr = &out.desc.shader;
+    const shader_creation_info *inptr = &_temp->desc.shader;
+    shader_creation_info *outptr = &out.desc.shader;
     outptr->vertex_path =
-      strnclone_s(inptr->vertex_path, MAX_RESOURCE_PATH_STRLEN);
+        strnclone_s(inptr->vertex_path, MAX_RESOURCE_PATH_STRLEN);
     outptr->fragment_path =
-      strnclone_s(inptr->fragment_path, MAX_RESOURCE_PATH_STRLEN);
+        strnclone_s(inptr->fragment_path, MAX_RESOURCE_PATH_STRLEN);
 
     if (inptr->geo_path) {
       outptr->geo_path = strnclone_s(inptr->geo_path, MAX_RESOURCE_PATH_STRLEN);
@@ -64,29 +65,24 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
 
     if (inptr->tesselation_path) {
       outptr->tesselation_path =
-        strnclone_s(inptr->tesselation_path, MAX_RESOURCE_PATH_STRLEN);
+          strnclone_s(inptr->tesselation_path, MAX_RESOURCE_PATH_STRLEN);
     }
 
-    outptr->input_attributes = memclone(
-      inptr->input_attributes,
-      inptr->num_inputs * sizeof *inptr->input_attributes
-    );
-    outptr->uniform_attributes = memclone(
-      inptr->uniform_attributes,
-      inptr->num_uniforms * sizeof *inptr->uniform_attributes
-    );
-    outptr->ubo_binding_points = memclone(
-      inptr->ubo_binding_points,
-      inptr->num_ubos * sizeof *inptr->ubo_binding_points
-    );
-    outptr->ssbo_binding_points = memclone(
-      inptr->ssbo_binding_points,
-      inptr->num_ssbos * sizeof *inptr->ssbo_binding_points
-    );
-    outptr->output_attachements = memclone(
-      inptr->output_attachements,
-      inptr->num_outputs * sizeof *inptr->output_attachements
-    );
+    outptr->input_attributes =
+        memclone(inptr->input_attributes,
+                 inptr->num_inputs * sizeof *inptr->input_attributes);
+    outptr->uniform_attributes =
+        memclone(inptr->uniform_attributes,
+                 inptr->num_uniforms * sizeof *inptr->uniform_attributes);
+    outptr->ubo_binding_points =
+        memclone(inptr->ubo_binding_points,
+                 inptr->num_ubos * sizeof *inptr->ubo_binding_points);
+    outptr->ssbo_binding_points =
+        memclone(inptr->ssbo_binding_points,
+                 inptr->num_ssbos * sizeof *inptr->ssbo_binding_points);
+    outptr->output_attachements =
+        memclone(inptr->output_attachements,
+                 inptr->num_outputs * sizeof *inptr->output_attachements);
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_TEXTURE: {
@@ -97,9 +93,7 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
   case RESOURCE_CREATION_INFO_TYPE_IMAGE_TEXTURE: {
     memcpy(&out.desc, &_temp->desc, sizeof out.desc);
     out.desc.image_texture.image_path = strnclone_s(
-      _temp->desc.image_texture.image_path,
-      MAX_RESOURCE_PATH_STRLEN
-    );
+        _temp->desc.image_texture.image_path, MAX_RESOURCE_PATH_STRLEN);
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER: {
@@ -109,20 +103,21 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
   }
   default: {
     GAME_CRITICALF(
-      "unknown creation info passed to create_persistent_resource_data"
-    );
+        "unknown creation info passed to create_persistent_resource_data");
     exit(1);
     break;
   }
   }
 
-  GAME_LOGF("out resource: %s %d", out.resource_name, out.desc.dummy.creation_info_type);
+  GAME_LOGF("out resource: %s %d", out.resource_name,
+            out.desc.dummy.creation_info_type);
   return out;
 }
 
 u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   if (_data->resource_name) {
-    GAME_LOGF("freeing resource: %s type %d", _data->resource_name, _data->desc.dummy.creation_info_type);
+    GAME_LOGF("freeing resource: %s type %d", _data->resource_name,
+              _data->desc.dummy.creation_info_type);
     TRACKED_FREE(_data->resource_name);
     _data->resource_name = NULL;
   }
@@ -133,7 +128,7 @@ u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   case RESOURCE_CREATION_INFO_TYPE_RENDER_BUFFER:
   case RESOURCE_CREATION_INFO_TYPE_SHADER_STORAGE_BUFFER:
   case RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER:
-  case RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER:        {
+  case RESOURCE_CREATION_INFO_TYPE_UNIFORM_BUFFER: {
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_VERTEX_BUFFER: {
@@ -163,8 +158,7 @@ u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   }
   default: {
     GAME_CRITICALF(
-      "unknown creation info passed to destroy_persistent_resource_data"
-    );
+        "unknown creation info passed to destroy_persistent_resource_data");
     exit(1);
     break;
   }
@@ -172,12 +166,10 @@ u0 destroy_persistent_resource_data(gl_resource_data *_data) {
 }
 
 /* cancer */
-bool resource_data_eq(
-  const gl_resource_data *const _r0,
-  const gl_resource_data *const _r1
-) {
+bool resource_data_eq(const gl_resource_data *const _r0,
+                      const gl_resource_data *const _r1) {
   bool same_info_type =
-    _r0->desc.dummy.creation_info_type == _r1->desc.dummy.creation_info_type;
+      _r0->desc.dummy.creation_info_type == _r1->desc.dummy.creation_info_type;
   bool same_name = strcmp(_r0->resource_name, _r1->resource_name) == 0;
   bool same_desc = true;
 
@@ -257,23 +249,23 @@ bool resource_data_eq(
       GAME_ASSERT(a->input_attributes[i].name);
       GAME_ASSERT(b->input_attributes[i].name);
       same_desc &=
-        !strcmp(a->input_attributes[i].name, b->input_attributes[i].name);
+          !strcmp(a->input_attributes[i].name, b->input_attributes[i].name);
     }
     for (usize i = 0; i != a->num_uniforms; ++i) {
       same_desc &=
-        a->uniform_attributes[i].type == b->uniform_attributes[i].type;
+          a->uniform_attributes[i].type == b->uniform_attributes[i].type;
       same_desc &=
-        a->uniform_attributes[i].size == b->uniform_attributes[i].size;
-      same_desc &=
-        a->uniform_attributes[i].optional == b->uniform_attributes[i].optional;
+          a->uniform_attributes[i].size == b->uniform_attributes[i].size;
+      same_desc &= a->uniform_attributes[i].optional ==
+                   b->uniform_attributes[i].optional;
+      GAME_ASSERT(a->uniform_attributes[i].name);
+      GAME_ASSERT(a->uniform_attributes[i].name);
+      same_desc &= a->uniform_attributes[i].optional ==
+                   b->uniform_attributes[i].optional;
       GAME_ASSERT(a->uniform_attributes[i].name);
       GAME_ASSERT(a->uniform_attributes[i].name);
       same_desc &=
-        a->uniform_attributes[i].optional == b->uniform_attributes[i].optional;
-      GAME_ASSERT(a->uniform_attributes[i].name);
-      GAME_ASSERT(a->uniform_attributes[i].name);
-      same_desc &=
-        !strcmp(a->uniform_attributes[i].name, b->uniform_attributes[i].name);
+          !strcmp(a->uniform_attributes[i].name, b->uniform_attributes[i].name);
     }
     for (usize i = 0; i != a->num_ubos; ++i) {
       same_desc &= a->ubo_binding_points[i] == b->ubo_binding_points[i];
@@ -313,10 +305,10 @@ bool resource_data_eq(
     break;
   }
   case RESOURCE_CREATION_INFO_TYPE_PIXEL_BUFFER: {
-    const pixel_buffer_creation_info *a  = &_r0->desc.pixel_buffer;
-    const pixel_buffer_creation_info *b  = &_r1->desc.pixel_buffer;
-    same_desc                           &= a->byte_size == b->byte_size;
-    same_desc                           &= a->usage == b->usage;
+    const pixel_buffer_creation_info *a = &_r0->desc.pixel_buffer;
+    const pixel_buffer_creation_info *b = &_r1->desc.pixel_buffer;
+    same_desc &= a->byte_size == b->byte_size;
+    same_desc &= a->usage == b->usage;
     break;
   }
   default: {
@@ -327,12 +319,9 @@ bool resource_data_eq(
   }
   }
 
-  GAME_LOGF(
-    "resource_data_eq() same info: %s same name: %s same desc: %s",
-    same_info_type ? "true" : "false",
-    same_name ? "true" : "false",
-    same_desc ? "true" : "false"
-  );
+  GAME_LOGF("resource_data_eq() same info: %s same name: %s same desc: %s",
+            same_info_type ? "true" : "false", same_name ? "true" : "false",
+            same_desc ? "true" : "false");
   return same_info_type && same_name && same_desc;
 }
 
@@ -353,19 +342,21 @@ GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
   GL_CALL(glCreateBuffers(1, &vbo));
 
   const vertex_buffer_creation_info *const vc =
-    &_resource_data->desc.vertex_buffer;
+      &_resource_data->desc.vertex_buffer;
 
+  GAME_ASSERT(vc->raw_size < MAX_VERTEX_COUNT);
+  GAME_ASSERT(vc->buffer_usage == GL_DYNAMIC_DRAW ||
+              vc->buffer_usage == GL_STATIC_DRAW ||
+              vc->buffer_usage == GL_STREAM_DRAW);
   GL_CALL(
-    glNamedBufferData(vbo, vc->raw_size, vc->vertex_data, vc->buffer_usage)
-  );
+      glNamedBufferData(vbo, vc->raw_size, vc->vertex_data, vc->buffer_usage));
 
   GL_CALL(glCreateBuffers(1, &ebo));
-  GL_CALL(glNamedBufferData(
-    ebo,
-    gl_type_to_size(vc->index_type) * vc->index_count,
-    vc->index_data,
-    vc->buffer_usage
-  ));
+
+  GAME_ASSERT(vc->index_count >= 3);
+  GL_CALL(glNamedBufferData(ebo,
+                            gl_type_to_size(vc->index_type) * vc->index_count,
+                            vc->index_data, vc->buffer_usage));
 
   struct vbo_ebo_pair {
     GLuint vbo;
@@ -377,27 +368,27 @@ GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
   ((struct vbo_ebo_pair *)_resource_data->impl_storage)->vbo = vbo;
   ((struct vbo_ebo_pair *)_resource_data->impl_storage)->ebo = ebo;
 
-  GLint  offset = 0;
+  GLint offset = 0;
   GLuint stride = 0;
 
   for (usize i = 0; i < vc->num_attributes; i++) {
     vertex_attribute_info *a_info = &vc->vertex_attributes[i];
     stride += gl_type_to_size(a_info->attribute_type) * a_info->attribute_count;
   }
+  GAME_ASSERT(vc->raw_size % stride == 0);
 
   GL_CALL(glVertexArrayVertexBuffer(vao, 0, vbo, 0, stride));
-
   for (usize i = 0; i < vc->num_attributes; i++) {
     vertex_attribute_info *a_info = &vc->vertex_attributes[i];
+
+    GAME_ASSERT(is_valid_vertex_attrib_type(a_info->attribute_type));
+    GAME_ASSERT(a_info->attribute_count > 0 ||
+                a_info->attribute_count < MAX_VERTEX_ATTRIB_COUNT);
+
     GL_CALL(glEnableVertexArrayAttrib(vao, a_info->attribute_index));
     GL_CALL(glVertexArrayAttribFormat(
-      vao,
-      a_info->attribute_index,
-      a_info->attribute_count,
-      a_info->attribute_type,
-      GL_FALSE,
-      offset
-    ));
+        vao, a_info->attribute_index, a_info->attribute_count,
+        a_info->attribute_type, GL_FALSE, offset));
 
     GL_CALL(glVertexArrayAttribBinding(vao, a_info->attribute_index, 0));
 
@@ -415,10 +406,8 @@ GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
   return vao;
 }
 
-u0 destroy_gl_vbo(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
+u0 destroy_gl_vbo(gl_resource_data *const _resource_data,
+                  gl_resource_handle _handle) {
   GLuint vao = _handle->internal_handle;
 
   struct vbo_ebo_pair {
@@ -440,92 +429,112 @@ GLuint create_gl_rbo(gl_resource_data *const _resource_data) {
   GLuint handle = 0;
   GL_CALL(glGenRenderbuffers(1, &handle));
   GL_CALL(glBindRenderbuffer(GL_RENDERBUFFER, handle));
+
+  GAME_ASSERT(is_valid_internal_image_fmt(
+      _resource_data->desc.render_buffer.internal_format));
+  GAME_ASSERT(_resource_data->desc.render_buffer.width > 0 &&
+              _resource_data->desc.render_buffer.width <= MAX_IMAGE_SIZEX);
+  GAME_ASSERT(_resource_data->desc.render_buffer.height > 0 &&
+              _resource_data->desc.render_buffer.height <= MAX_IMAGE_SIZEY);
+  GAME_ASSERT(_resource_data->desc.render_buffer.sample_count >= 1 &&
+              _resource_data->desc.render_buffer.sample_count % 2 == 0 &&
+              _resource_data->desc.render_buffer.sample_count <= 16);
+
   if (_resource_data->desc.render_buffer.multisample) {
     GL_CALL(glRenderbufferStorageMultisample(
-      GL_RENDERBUFFER,
-      _resource_data->desc.render_buffer.sample_count,
-      _resource_data->desc.render_buffer.internal_format,
-      _resource_data->desc.render_buffer.width,
-      _resource_data->desc.render_buffer.height
-    ));
+        GL_RENDERBUFFER, _resource_data->desc.render_buffer.sample_count,
+        _resource_data->desc.render_buffer.internal_format,
+        _resource_data->desc.render_buffer.width,
+        _resource_data->desc.render_buffer.height));
   } else {
     GL_CALL(glRenderbufferStorage(
-      GL_RENDERBUFFER,
-      _resource_data->desc.render_buffer.internal_format,
-      _resource_data->desc.render_buffer.width,
-      _resource_data->desc.render_buffer.height
-    ));
+        GL_RENDERBUFFER, _resource_data->desc.render_buffer.internal_format,
+        _resource_data->desc.render_buffer.width,
+        _resource_data->desc.render_buffer.height));
   }
   return handle;
 }
 
-u0 destroy_gl_rbo(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
+u0 destroy_gl_rbo(gl_resource_data *const _resource_data,
+                  gl_resource_handle _handle) {
   GL_CALL(glDeleteRenderbuffers(1, &_handle->internal_handle));
 }
 
 GLuint create_gl_pbo(gl_resource_data *const _resource_data) {
   GLuint handle = 0;
   GL_CALL(glGenBuffers(1, &handle));
-  if (_resource_data->desc.pixel_buffer.pack) {
-    GL_CALL(glBindBuffer(
-      _resource_data->desc.pixel_buffer.pack ? GL_PIXEL_PACK_BUFFER
-                                             : GL_PIXEL_UNPACK_BUFFER,
-      handle
-    ));
-    GL_CALL(glBufferData(
-      _resource_data->desc.pixel_buffer.pack ? GL_PIXEL_PACK_BUFFER
-                                             : GL_PIXEL_UNPACK_BUFFER,
-      _resource_data->desc.pixel_buffer.byte_size,
-      _resource_data->desc.pixel_buffer.data,
-      _resource_data->desc.pixel_buffer.usage
-    ));
-  }
+
+  GAME_ASSERT(_resource_data->desc.pixel_buffer.byte_size <
+                  MAX_PIXEL_BUFFER_BYTE_SIZE &&
+              _resource_data->desc.pixel_buffer.byte_size > 0);
+  GAME_ASSERT(_resource_data->desc.pixel_buffer.usage == GL_STREAM_READ ||
+              _resource_data->desc.pixel_buffer.usage == GL_STREAM_COPY ||
+              _resource_data->desc.pixel_buffer.usage == GL_STATIC_READ ||
+              _resource_data->desc.pixel_buffer.usage == GL_STATIC_COPY ||
+              _resource_data->desc.pixel_buffer.usage == GL_DYNAMIC_READ ||
+              _resource_data->desc.pixel_buffer.usage == GL_DYNAMIC_COPY);
+
+  GL_CALL(glBindBuffer(_resource_data->desc.pixel_buffer.pack
+                           ? GL_PIXEL_PACK_BUFFER
+                           : GL_PIXEL_UNPACK_BUFFER,
+                       handle));
+  GL_CALL(glBufferData(_resource_data->desc.pixel_buffer.pack
+                           ? GL_PIXEL_PACK_BUFFER
+                           : GL_PIXEL_UNPACK_BUFFER,
+                       _resource_data->desc.pixel_buffer.byte_size,
+                       _resource_data->desc.pixel_buffer.data,
+                       _resource_data->desc.pixel_buffer.usage));
   return handle;
 }
 
-u0 destroy_gl_pbo(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
+u0 destroy_gl_pbo(gl_resource_data *const _resource_data,
+                  gl_resource_handle _handle) {
   GL_CALL(glDeleteBuffers(1, &_handle->internal_handle));
 }
 
 GLuint create_gl_image_texture(gl_resource_data *const _resource_data) {
   image_texture_creation_info *const it = &_resource_data->desc.image_texture;
-  const loaded_texture               lt = load_texture_from_file(
-    it->image_path,
-    it->compress,
-    it->scale,
-    it->wrap_mode
-  );
 
-  it->width           = lt.width;
-  it->height          = lt.height;
+  GAME_ASSERT(it->wrap_mode == GL_CLAMP_TO_EDGE ||
+              it->wrap_mode == GL_CLAMP_TO_BORDER ||
+              it->wrap_mode == GL_MIRRORED_REPEAT ||
+              it->wrap_mode == GL_REPEAT ||
+              it->wrap_mode == GL_MIRROR_CLAMP_TO_EDGE);
+  GAME_ASSERT(it->scale > 0 && it->scale <= 1.f + __FLT_EPSILON__);
+
+  const loaded_texture lt = load_texture_from_file(it->image_path, it->compress,
+                                                   it->scale, it->wrap_mode);
+
+  it->width = lt.width;
+  it->height = lt.height;
   it->internal_format = lt.internal_format;
-  it->format          = lt.format;
+  it->format = lt.format;
 
-  GAME_LOGF(
-    "new tex: %lu %lu, %lu %lu",
-    it->width,
-    it->height,
-    it->internal_format,
-    it->format
-  );
+  GAME_LOGF("new tex: %lu %lu, %lu %lu", it->width, it->height,
+            it->internal_format, it->format);
   return lt.handle;
 }
 
 GLuint create_gl_texture(gl_resource_data *const _resource_data) {
-  texture_creation_info *const ti     = &_resource_data->desc.texture;
-  GLuint                       handle = 0;
+  texture_creation_info *const ti = &_resource_data->desc.texture;
+  GLuint handle = 0;
 
   GL_CALL(glGenTextures(1, &handle));
   GL_CALL(glBindTexture(GL_TEXTURE_2D, handle));
 
+  GAME_ASSERT(ti->width > 0 && ti->width <= MAX_IMAGE_SIZEX);
+  GAME_ASSERT(ti->height > 0 && ti->height <= MAX_IMAGE_SIZEY);
+  GAME_ASSERT(ti->wrap_mode == GL_CLAMP_TO_EDGE ||
+              ti->wrap_mode == GL_CLAMP_TO_BORDER ||
+              ti->wrap_mode == GL_MIRRORED_REPEAT ||
+              ti->wrap_mode == GL_REPEAT ||
+              ti->wrap_mode == GL_MIRROR_CLAMP_TO_EDGE);
+
   const usize xsize = ti->width;
   const usize ysize = ti->height;
+
+  GAME_ASSERT(is_valid_image_fmt(ti->format));
+  GAME_ASSERT(is_valid_internal_image_fmt(ti->internal_format));
 
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   /* initial data provided */
@@ -534,35 +543,21 @@ GLuint create_gl_texture(gl_resource_data *const _resource_data) {
     switch (ti->format) {
     case GL_RGB: {
       const usize total_size = ((xsize + 3) / 4) * ((ysize + 3) / 4) * 8ull;
-      u8         *compressed_data = TRACKED_MALLOC(total_size);
+      u8 *compressed_data = TRACKED_MALLOC(total_size);
       compress_rgba_dxt1(compressed_data, ti->image_data, xsize, ysize);
-      GL_CALL(glCompressedTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
-        xsize,
-        ysize,
-        0,
-        total_size,
-        compressed_data
-      ));
+      GL_CALL(glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+                                     GL_COMPRESSED_RGB_S3TC_DXT1_EXT, xsize,
+                                     ysize, 0, total_size, compressed_data));
       TRACKED_FREE(compressed_data);
       goto done;
     }
     case GL_RGBA: {
       const usize total_size = ((xsize + 3) / 4) * ((ysize + 3) / 4) * 16ull;
-      u8         *compressed_data = TRACKED_MALLOC(total_size);
+      u8 *compressed_data = TRACKED_MALLOC(total_size);
       compress_rgba_dxt5(compressed_data, ti->image_data, xsize, ysize);
-      GL_CALL(glCompressedTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-        xsize,
-        ysize,
-        0,
-        total_size,
-        compressed_data
-      ));
+      GL_CALL(glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+                                     GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, xsize,
+                                     ysize, 0, total_size, compressed_data));
       TRACKED_FREE(compressed_data);
       goto done;
     }
@@ -572,17 +567,11 @@ GLuint create_gl_texture(gl_resource_data *const _resource_data) {
     }
   }
 no_compress:
-  GL_CALL(glTexImage2D(
-    GL_TEXTURE_2D,
-    0,
-    ti->internal_format,
-    xsize,
-    ysize,
-    0,
-    ti->format,
-    GL_UNSIGNED_BYTE,
-    ti->image_data /* either valid or null */
-  ));
+
+  GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, ti->internal_format, xsize, ysize, 0,
+                       ti->format, GL_UNSIGNED_BYTE,
+                       ti->image_data /* either valid or null */
+                       ));
 done:
 
   GL_CALL(glGenerateMipmap(GL_TEXTURE_2D));
@@ -594,10 +583,8 @@ done:
   return handle;
 }
 
-u0 destroy_gl_texture(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
+u0 destroy_gl_texture(gl_resource_data *const _resource_data,
+                      gl_resource_handle _handle) {
   GL_CALL(glDeleteTextures(1, &_handle->internal_handle));
 }
 
@@ -605,19 +592,26 @@ GLuint create_gl_ssbo(gl_resource_data *const _resource_data) {
   GLuint ssbo;
   GL_CALL(glGenBuffers(1, &ssbo));
   GL_CALL(glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo));
+
+  GAME_ASSERT(_resource_data->desc.ssbo.byte_size > 0);
+  GAME_ASSERT(_resource_data->desc.ssbo.usage == GL_STREAM_DRAW ||
+              _resource_data->desc.ssbo.usage == GL_STATIC_DRAW ||
+              _resource_data->desc.ssbo.usage == GL_DYNAMIC_DRAW ||
+              _resource_data->desc.ssbo.usage == GL_STREAM_READ ||
+              _resource_data->desc.ssbo.usage == GL_STATIC_READ ||
+              _resource_data->desc.ssbo.usage == GL_DYNAMIC_READ ||
+              _resource_data->desc.ssbo.usage == GL_STREAM_COPY ||
+              _resource_data->desc.ssbo.usage == GL_STATIC_COPY ||
+              _resource_data->desc.ssbo.usage == GL_DYNAMIC_COPY);
+
   GL_CALL(glBufferData(
-    GL_SHADER_STORAGE_BUFFER,
-    _resource_data->desc.ssbo.byte_size,
-    _resource_data->desc.ssbo.data,
-    _resource_data->desc.ssbo.usage
-  ));
+      GL_SHADER_STORAGE_BUFFER, _resource_data->desc.ssbo.byte_size,
+      _resource_data->desc.ssbo.data, _resource_data->desc.ssbo.usage));
   return ssbo;
 }
 
-u0 destroy_gl_ssbo(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
+u0 destroy_gl_ssbo(gl_resource_data *const _resource_data,
+                   gl_resource_handle _handle) {
   GL_CALL(glDeleteBuffers(1, &_handle->internal_handle));
 }
 
@@ -625,19 +619,26 @@ GLuint create_gl_ubo(gl_resource_data *const _resource_data) {
   GLuint ubo;
   GL_CALL(glGenBuffers(1, &ubo));
   GL_CALL(glBindBuffer(GL_UNIFORM_BUFFER, ubo));
-  GL_CALL(glBufferData(
-    GL_UNIFORM_BUFFER,
-    _resource_data->desc.ssbo.byte_size,
-    _resource_data->desc.ssbo.data,
-    _resource_data->desc.ssbo.usage
-  ));
+
+  GAME_ASSERT(_resource_data->desc.ubo.byte_size > 0);
+  GAME_ASSERT(_resource_data->desc.ubo.usage == GL_STREAM_DRAW ||
+              _resource_data->desc.ubo.usage == GL_STATIC_DRAW ||
+              _resource_data->desc.ubo.usage == GL_DYNAMIC_DRAW ||
+              _resource_data->desc.ubo.usage == GL_STREAM_READ ||
+              _resource_data->desc.ubo.usage == GL_STATIC_READ ||
+              _resource_data->desc.ubo.usage == GL_DYNAMIC_READ ||
+              _resource_data->desc.ubo.usage == GL_STREAM_COPY ||
+              _resource_data->desc.ubo.usage == GL_STATIC_COPY ||
+              _resource_data->desc.ubo.usage == GL_DYNAMIC_COPY);
+
+  GL_CALL(glBufferData(GL_UNIFORM_BUFFER, _resource_data->desc.ubo.byte_size,
+                       _resource_data->desc.ubo.data,
+                       _resource_data->desc.ubo.usage));
   return ubo;
 }
 
-u0 destroy_gl_ubo(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
+u0 destroy_gl_ubo(gl_resource_data *const _resource_data,
+                  gl_resource_handle _handle) {
   GL_CALL(glDeleteBuffers(1, &_handle->internal_handle));
 }
 
@@ -688,10 +689,8 @@ GLuint impl_create_gl_resource(gl_resource_data *const resource_data) {
   return (GLuint)-1;
 }
 
-u0 impl_destroy_gl_resource(
-  gl_resource_data *const resource_data,
-  gl_resource_handle      _handle
-) {
+u0 impl_destroy_gl_resource(gl_resource_data *const resource_data,
+                            gl_resource_handle _handle) {
   switch (resource_data->desc.dummy.creation_info_type) {
   case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
     GAME_LOGF("destroying FBO");
@@ -744,29 +743,22 @@ u0 impl_destroy_gl_resource(
   }
 }
 
-u0 request_gl_resource(
-  gl_resource_data *const resource_data,
-  gl_resource_handle     *_handle
-) {
+u0 request_gl_resource(gl_resource_data *const resource_data,
+                       gl_resource_handle *_handle) {
   static str_hash_table *const table = &gl_resource_manager.table;
   static str_hash_table *const handle_pointer_table =
-    &gl_resource_manager.handle_pointers;
+      &gl_resource_manager.handle_pointers;
 
   GAME_ASSERT(resource_data->resource_name);
-  GAME_ASSERT(
-    resource_data->desc.dummy.creation_info_type !=
-    RESOURCE_CREATION_INFO_TYPE_INVALID
-  );
+  GAME_ASSERT(resource_data->desc.dummy.creation_info_type !=
+              RESOURCE_CREATION_INFO_TYPE_INVALID);
 
   /* initialize global resource manager once */
   if (!gl_resource_manager.initialized) {
     GAME_LOGF("creating gl_resource_manager");
     str_hash_table_initialize(table, sizeof(resource_table_slot), 10);
-    str_hash_table_initialize(
-      handle_pointer_table,
-      sizeof(gl_resource_handle),
-      10
-    );
+    str_hash_table_initialize(handle_pointer_table, sizeof(gl_resource_handle),
+                              10);
     gl_resource_manager.initialized = true;
   }
 
@@ -778,21 +770,18 @@ u0 request_gl_resource(
 #ifdef GAME_DEBUG
     GAME_LOGF("handle already in use by client");
     GAME_ASSERT(str_hash_table_contains(table, resource_data->resource_name));
-    GAME_ASSERT(
-      str_hash_table_get_index(table, resource_data->resource_name) ==
-      (*_handle)->hashed_resource_index
-    );
+    GAME_ASSERT(str_hash_table_get_index(table, resource_data->resource_name) ==
+                (*_handle)->hashed_resource_index);
     resource_table_slot *resource_slot =
-      str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
+        str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
     /* resource desc matches? */
     if (resource_data_eq(&resource_slot->resource_data, resource_data)) {
       /* since _handle was != NULL we dont increment refcount */
       return;
     } else {
       GAME_CRITICALF(
-        "tried to obtain resource '%s' with conflicting creation info",
-        resource_data->resource_name
-      );
+          "tried to obtain resource '%s' with conflicting creation info",
+          resource_data->resource_name);
       exit(1);
     }
 #else
@@ -800,30 +789,22 @@ u0 request_gl_resource(
     return;
 #endif
   } else if (str_hash_table_contains(table, resource_data->resource_name)) {
-    GAME_LOGF(
-      "new client called request_resource on existing resource: %s",
-      resource_data->resource_name
-    );
+    GAME_LOGF("new client called request_resource on existing resource: %s",
+              resource_data->resource_name);
     /* handle NULL but resource exists already */
-    GAME_ASSERT(str_hash_table_contains(
-      handle_pointer_table,
-      resource_data->resource_name
-    ));
+    GAME_ASSERT(str_hash_table_contains(handle_pointer_table,
+                                        resource_data->resource_name));
 
-    *_handle =
-      *(gl_resource_handle *)
-        str_hash_table_at(handle_pointer_table, resource_data->resource_name);
+    *_handle = *(gl_resource_handle *)str_hash_table_at(
+        handle_pointer_table, resource_data->resource_name);
 
     GAME_ASSERT(*_handle);
-    GAME_LOGF(
-      "handle: index %u internal handle: %u",
-      (*_handle)->hashed_resource_index,
-      (*_handle)->internal_handle
-    );
+    GAME_LOGF("handle: index %u internal handle: %u",
+              (*_handle)->hashed_resource_index, (*_handle)->internal_handle);
 
     /* handle already exists so just set it */
     resource_table_slot *const resource_slot =
-      str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
+        str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
     /* new client, so increment refcount */
     ++resource_slot->ref_count;
     return;
@@ -833,46 +814,38 @@ u0 request_gl_resource(
   const GLuint gl_handle = impl_create_gl_resource(resource_data);
 
   /* make sure handle pointer table was properly cleared before */
-  GAME_ASSERT(
-    !str_hash_table_contains(handle_pointer_table, resource_data->resource_name)
-  );
+  GAME_ASSERT(!str_hash_table_contains(handle_pointer_table,
+                                       resource_data->resource_name));
 
   gl_resource_handle new_handle = TRACKED_MALLOC(sizeof **_handle);
 
-  str_hash_table_insert(
-    handle_pointer_table,
-    resource_data->resource_name,
-    &new_handle
-  );
+  str_hash_table_insert(handle_pointer_table, resource_data->resource_name,
+                        &new_handle);
 
-  *_handle                          = new_handle;
+  *_handle = new_handle;
   (*_handle)->hashed_resource_index = str_hash_table_insert(
-    table,
-    resource_data->resource_name,
-    &(resource_table_slot){
-      .resource_data   = create_persistent_resource_data(resource_data),
-      .internal_handle = gl_handle, /* change when we actually do the stuff */
-      .ref_count       = 1,
-    }
-  );
-  GAME_LOGF("inserted resource table slot: %p", str_hash_table_at(table, resource_data->resource_name));
+      table, resource_data->resource_name,
+      &(resource_table_slot){
+          .resource_data = create_persistent_resource_data(resource_data),
+          .internal_handle =
+              gl_handle, /* change when we actually do the stuff */
+          .ref_count = 1,
+      });
+  GAME_LOGF("inserted resource table slot: %p",
+            str_hash_table_at(table, resource_data->resource_name));
   (*_handle)->internal_handle = gl_handle;
 }
 
-u0 destroy_gl_resource(
-  gl_resource_data *const resource_data,
-  gl_resource_handle     *_handle
-) {
+u0 destroy_gl_resource(gl_resource_data *const resource_data,
+                       gl_resource_handle *_handle) {
   static str_hash_table *const table = &gl_resource_manager.table;
   static str_hash_table *const handle_pointer_table =
-    &gl_resource_manager.handle_pointers;
+      &gl_resource_manager.handle_pointers;
 
   GAME_ASSERT(gl_resource_manager.initialized);
   GAME_ASSERT(resource_data->resource_name);
-  GAME_ASSERT(
-    resource_data->desc.dummy.creation_info_type !=
-    RESOURCE_CREATION_INFO_TYPE_INVALID
-  );
+  GAME_ASSERT(resource_data->desc.dummy.creation_info_type !=
+              RESOURCE_CREATION_INFO_TYPE_INVALID);
 
   GAME_LOGF("destroy_resource() on %s", resource_data->resource_name);
 
@@ -882,13 +855,11 @@ u0 destroy_gl_resource(
   }
 
   GAME_ASSERT(str_hash_table_contains(table, resource_data->resource_name));
-  GAME_ASSERT(
-    str_hash_table_get_index(table, resource_data->resource_name) ==
-    (*_handle)->hashed_resource_index
-  );
+  GAME_ASSERT(str_hash_table_get_index(table, resource_data->resource_name) ==
+              (*_handle)->hashed_resource_index);
 
   resource_table_slot *resource_slot =
-    str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
+      str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
 
   GAME_LOGF("resource slot address: %p", resource_slot);
   GAME_ASSERT(resource_slot->ref_count > 0);
@@ -898,10 +869,8 @@ u0 destroy_gl_resource(
     /* TODO: implement deletion postpone callback */
     if (true) {
       /* free the main table slot */
-      GAME_ASSERT(str_hash_table_contains(
-        handle_pointer_table,
-        resource_data->resource_name
-      ));
+      GAME_ASSERT(str_hash_table_contains(handle_pointer_table,
+                                          resource_data->resource_name));
 
       /* the OpenGL side of the resource is getting destroyed in here */
       impl_destroy_gl_resource(resource_data, *_handle);
@@ -917,10 +886,8 @@ u0 destroy_gl_resource(
       or so checks all of the callbacks) and pushes the ones that returned
       true into a queue for the main thread to destroy them
       */
-      GAME_LOGF(
-        "destroy_resource() on %s moved its data to postpone list!",
-        resource_data->resource_name
-      );
+      GAME_LOGF("destroy_resource() on %s moved its data to postpone list!",
+                resource_data->resource_name);
     }
   }
   *_handle = NULL;
