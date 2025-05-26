@@ -1,3 +1,4 @@
+#include "containers/str_hash_table.h"
 #include <renderer/gl_api.h>
 #include <renderer/gl_resource_manager.h>
 #include <renderer/internal/load_image_texture.h>
@@ -854,6 +855,7 @@ u0 request_gl_resource(
       .ref_count       = 1,
     }
   );
+  GAME_LOGF("inserted resource table slot: %p", str_hash_table_at(table, resource_data->resource_name));
   (*_handle)->internal_handle = gl_handle;
 }
 
@@ -887,6 +889,8 @@ u0 destroy_gl_resource(
 
   resource_table_slot *resource_slot =
     str_hash_table_at_index(table, (*_handle)->hashed_resource_index);
+
+  GAME_LOGF("resource slot address: %p", resource_slot);
   GAME_ASSERT(resource_slot->ref_count > 0);
   --resource_slot->ref_count;
 
@@ -901,11 +905,11 @@ u0 destroy_gl_resource(
 
       /* the OpenGL side of the resource is getting destroyed in here */
       impl_destroy_gl_resource(resource_data, *_handle);
+      destroy_persistent_resource_data(&resource_slot->resource_data);
 
       str_hash_table_erase(table, resource_data->resource_name);
       str_hash_table_erase(handle_pointer_table, resource_data->resource_name);
 
-      destroy_persistent_resource_data(&resource_slot->resource_data);
       TRACKED_FREE(*_handle);
       GAME_LOGF("resource fully destroyed");
     } else {
