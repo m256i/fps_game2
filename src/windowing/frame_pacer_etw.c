@@ -1,3 +1,4 @@
+#ifdef _WIN64
 #include <assert.h>
 #include <containers/spsc_u64.h>
 #include <windowing/frame_pacer.h>
@@ -196,3 +197,4 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
   }
   free(pInfo);
 }
+#endif

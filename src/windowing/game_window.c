@@ -1,15 +1,19 @@
+#include <glad/glad.h>
 #include <windowing/game_window.h>
+#ifdef _WIN64
 #define RGFW_EXPOSE_NATIVE_WIN32
+#endif
 #define RGFW_VULKAN
 #undef RGFW_OPENGL
 #include <RGFW/RGFW.h>
 #include <assert.h>
-
 #include <util/dbg/alloctrack.h>
 
 #ifdef _WIN64
 #include <windows.h>
 #endif
+
+#ifdef _WIN64
 
 static u0 exclusive_fullscreen_hint(HWND hwnd, usize _width, usize _height) {
   SetWindowLongPtr(
@@ -31,6 +35,7 @@ static u0 exclusive_fullscreen_hint(HWND hwnd, usize _width, usize _height) {
   SwapBuffers(dc);
   SwapBuffers(dc);
 }
+#endif
 
 static window *global_window;
 
@@ -39,6 +44,7 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
   if (inFocus && global_window && !global_window->in_focus) {
     GAME_LOGF("in focus after not");
     if (global_window->initialized) {
+#ifdef _WIN64
       SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
       SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
@@ -58,25 +64,25 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
         );
         exit(1);
       }
-
+#endif
       GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
-
       RGFW_window_setFullscreen(win, RGFW_TRUE);
-
+      
+#ifdef _WIN64
       exclusive_fullscreen_hint(
         win->src.window,
         global_window->screen_width,
         global_window->screen_height
       );
       initialize_frame_pacer(&global_window->fpc);
-
+#endif
       global_window->in_focus = true;
-
       GAME_LOGF(
         "recreating window with bounds: %u %u\n",
         global_window->screen_width,
         global_window->screen_height
       );
+#ifdef _WIN64
       initialize_vulkan_context(
         &global_window->vk_ctx,
         win->src.window,
@@ -84,19 +90,20 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
         global_window->screen_height,
         global_window->render_mode
       );
+#endif
     }
   } else if (!inFocus && global_window && global_window->in_focus) {
     GAME_LOGF("out of focus");
+#ifdef _WIN64
     SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
-
-    global_window->in_focus = false;
-
     if (global_window->initialized) {
       GAME_LOGF("destroying surface");
       destroy_frame_pacer(&global_window->fpc);
       destroy_vulkan_context(&global_window->vk_ctx);
     }
+#endif
+    global_window->in_focus = false;
   }
 }
 
@@ -123,6 +130,7 @@ u0 APIENTRY debug_callback(
 }
 
 u0 create_gl_context(u0) {
+#ifdef _WIN64
   RGFW_window *tmp_window = RGFW_createWindow(
     "opengl_context_window",
     RGFW_RECT(0, 0, 1, 1),
@@ -143,6 +151,7 @@ u0 create_gl_context(u0) {
 #endif
 
   GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
+#endif
 }
 
 u0 create_global_window(
@@ -156,6 +165,7 @@ u0 create_global_window(
 
   RGFW_window *win;
   RGFW_area    prim_monitor_size = RGFW_getScreenSize();
+
   if (_w == 0) {
     _w = prim_monitor_size.w;
   }
@@ -164,17 +174,15 @@ u0 create_global_window(
   }
 
   GAME_LOGF("using screen space: (%d, %d)", _w, _h);
-
   RGFW_rect winsize = RGFW_RECT(0, 0, _w, _h);
 
   global_window->window_name = _name;
-
   global_window->screen_width  = _w;
   global_window->screen_height = _h;
-
   global_window->in_focus    = true;
   global_window->render_mode = _render_mode;
-
+  
+#ifdef _WIN64
   if (_render_mode == RENDER_MODE_FRAME_PACE_EXP ||
       _render_mode == RENDER_MODE_FRAME_PACE_EXP) {
     GAME_CRITICALF("using either RENDER_MODE_FRAME_PACE_EXP or "
@@ -202,17 +210,20 @@ u0 create_global_window(
 
   SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+#endif
 
   win = RGFW_createWindow(
     _name,
     winsize,
-    RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor |
-      RGFW_windowNoInitAPI
+    RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor 
+#ifdef _WIN64  
+    | RGFW_windowNoInitAPI
+#endif
   );
-
   RGFW_window_setFullscreen(win, RGFW_TRUE);
-  exclusive_fullscreen_hint(win->src.window, _w, _h);
 
+#ifdef _WIN64
+  exclusive_fullscreen_hint(win->src.window, _w, _h);
   initialize_vulkan_context(
     &global_window->vk_ctx,
     win->src.window,
@@ -221,6 +232,13 @@ u0 create_global_window(
     _render_mode
   );
   initialize_frame_pacer(&global_window->fpc);
+#else
+  RGFW_window_makeCurrent_OpenGL(win);
+  if (gladLoadGLLoader((GLADloadproc)RGFW_getProcAddress) == 0) {
+    GAME_CRITICALF("failed to initialize glad! exiting.");
+    exit(1);
+  }
+#endif
 
   RGFW_setFocusCallback(on_focus_callback);
 
@@ -266,8 +284,10 @@ u0 destroy_global_window() {
     global_window && global_window->internal_window &&
     global_window->initialized
   );
+#ifdef _WIN64
   destroy_frame_pacer(&global_window->fpc);
   destroy_vulkan_context(&global_window->vk_ctx);
+#endif
   RGFW_window_close(global_window->internal_window);
   TRACKED_FREE(global_window);
 }
@@ -290,10 +310,15 @@ static u0 window_check_events(u0) {
 }
 
 u0 window_run_render_proc(u0) {
+#ifdef _WIN64
+    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+#endif
   window_check_events();
   if (!global_window->in_focus) {
     return;
   }
+#ifdef _WIN64
   switch (global_window->render_mode) {
   case RENDER_MODE_FRAME_PACE_EXP: {
     frame_pacer_context *const fpc = &global_window->fpc;
@@ -323,17 +348,22 @@ u0 window_run_render_proc(u0) {
   }
   case RENDER_MODE_VSYNC:
   case RENDER_MODE_IMMEDIATE: {
-    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-
     bind_vulkan_surface(&global_window->vk_ctx);
     global_window->render_proc();
     vulkan_present(&global_window->vk_ctx);
     break;
   }
-  }
+}
+#else
+  global_window->render_proc();
+  RGFW_window_swapBuffers_OpenGL(global_window->internal_window);
+#endif
 }
 
 u64 window_get_last_input_to_photon_latency(u0) {
+#ifdef _WIN64
   return global_window->fpc.last_input_to_photon_latency;
+#else
+  return 0;
+#endif
 }

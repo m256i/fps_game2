@@ -10,7 +10,7 @@ gl_resource_manager_class gl_resource_manager = {0};
 gl_resource_data
 create_persistent_resource_data(const gl_resource_data *const _temp) {
   gl_resource_data out = {0};
-  GAME_LOGF("doig deep copy on resource %s", _temp->resource_name);
+  GAME_LOGF("doig deep copy on resource %s %d", _temp->resource_name, _temp->desc.dummy.creation_info_type);
 
   /* copy the name into a persistent buff */
   out.resource_name =
@@ -114,11 +114,14 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
     break;
   }
   }
+
+  GAME_LOGF("out resource: %s %d", out.resource_name, out.desc.dummy.creation_info_type);
   return out;
 }
 
 u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   if (_data->resource_name) {
+    GAME_LOGF("freeing resource: %s type %d", _data->resource_name, _data->desc.dummy.creation_info_type);
     TRACKED_FREE(_data->resource_name);
     _data->resource_name = NULL;
   }

@@ -11,36 +11,37 @@ build_dir_where = 'build'  # Relative to meson.build location
 # set to disable some optimizations enable detailed stacktraces, debug logs etc...
 DEBUGMODE = true
 
-c_compiler_args = []
 
 if DEBUGMODE == true
-# Compiler arguments
-c_compiler_args += [
-  '-Wall',
-  '-Wextra',
-  '-g',
-  '-static-libgcc', 
-  '-static-libstdc++',
-  '-O2',
-  '-march=native',
-  '-mtune=native',
-  '-fomit-frame-pointer',
-  '-ffast-math',
-  '-fplugin=' + meson.project_source_root() + '/libftrace.dll',
-  '-DGAME_DEBUG'
-]
+  # Compiler arguments
+  c_compiler_args = [
+    '-Wall',
+    '-Wextra',
+    '-g',
+    '-static-libgcc', 
+    '-static-libstdc++',
+    '-O2',
+    '-march=native',
+    '-mtune=native',
+    '-fomit-frame-pointer',
+    '-ffast-math',
+    '-DGAME_DEBUG'
+  ]
+  if host_machine.kernel() == 'nt'
+    c_compiler_args += ('-fplugin=' + meson.project_source_root() + '/libftrace.dll')
+  endif
 else
-c_compiler_args += [
-  '-Wall',
-  '-Wextra',
-  '-static-libgcc', 
-  '-static-libstdc++',
-  '-O3',
-  '-march=native',
-  '-mtune=native',
-  '-fomit-frame-pointer',
-  '-ffast-math',
-]
+  c_compiler_args = [
+    '-Wall',
+    '-Wextra',
+    '-static-libgcc', 
+    '-static-libstdc++',
+    '-O3',
+    '-march=native',
+    '-mtune=native',
+    '-fomit-frame-pointer',
+    '-ffast-math',
+  ]
 endif
 
 # Normalize paths
@@ -63,17 +64,14 @@ foreach item : dependencies_str
   dependencies += dependency(item)
 endforeach
 
-# get localappdata path
-localappdata_cmd = run_command('cmd', '/c', 'echo %LOCALAPPDATA%', check : false)
-if localappdata_cmd.returncode() == 0
-  localappdata_path = localappdata_cmd.stdout().strip()
-else
-  error('Failed to retrieve LOCALAPPDATA path.')
-endif
-
 # Use a custom Python globber to list all source files.
-source_files = run_command('python', localappdata_path + '\\amca\\snakes\\globber.py', './', '*.c', check : true).stdout().strip().split('\n')
-vulkan_lib = run_command('cmd', '/c', 'echo %VULKAN_SDK%\\Lib').stdout().strip().replace('\\', '/')
+source_files = run_command('python', 'globber.py', './', '*.c', check : true).stdout().strip().split('\n')
+
+if host_machine.kernel() == 'nt'
+  vulkan_lib = run_command('cmd', '/c', 'echo %VULKAN_SDK%\\Lib').stdout().strip().replace('\\', '/')
+else
+  vulkan_lib = run_command('echo', '$VULKAN_SDK/lib').stdout().strip().replace('\\', '/')
+endif
 
 # Include directories
 if fs.is_dir('./include/')
@@ -84,21 +82,42 @@ else
   headers = []
 endif
 
+if host_machine.kernel() == 'nt'
+  linker_args = [
+    '-static', 
+    '-static-libgcc', 
+    '-static-libstdc++', 
+    '-L' + vulkan_lib,  
+    '-lvulkan-1', 
+    '-lole32', 
+    '-lopengl32', 
+    '-ltdh', 
+    '-ldxguid', 
+    '-ldxgi', 
+    '-ldbghelp'
+  ]
+else
+  linker_args = [ 
+    '-rdynamic',
+    '-static-libgcc', 
+    '-static-libstdc++',
+    '-L/lib/x86_64-linux-gnu',
+    '-lGL',
+    '-lX11',
+    '-lm',
+    '-lXrandr'
+  ]
+endif
+
 executable(output_name,
   [source_files],
   dependencies : dependencies,
   include_directories : headers,
   c_args : c_compiler_args,
-  link_args : ['-static', '-static-libgcc', '-static-libstdc++', '-L' + vulkan_lib,  '-lvulkan-1', '-lole32', '-lopengl32', '-ltdh', '-ldxguid', '-ldxgi', '-ldbghelp'],
+  link_args : linker_args,
   install : true,
-  install_dir : output_dir)
+  install_dir : output_dir
+)
 
 # Print build context
 message('\033[2K\r\nsource files: \n   ', '   '.join(source_files), '\noutputs to:\n   ', output_dir + output_name, '\n')
-
-# # generate .pdb file
-# run_command('cv2pdb64', '-C', output_dir + '\\' + output_name + '.exe', check : true)
-# run_command('cv2pdb64', '-C', '..\\' + build_dir_where + '\\' + output_name + '.exe', check : true)
-
-# # strip dwarf symbols
-# run_command('strip', '-g', output_name + '.exe', check : true)

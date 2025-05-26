@@ -17,6 +17,7 @@
   tracked_aligned_free(_ptr, __PRETTY_FUNCTION__)
 
 #else
+#ifdef _WIN64
 #include <stdlib.h>
 #define TRACKED_MALLOC(_size) malloc(_size)
 #define TRACKED_ALIGNED_MALLOC(_size, _alignment)                              \
@@ -27,6 +28,19 @@
 #define TRACKED_CALLOC(_count, _size) calloc(_count, _size)
 #define TRACKED_FREE(_ptr)            free(_ptr)
 #define TRACKED_ALIGNED_FREE(_ptr)    _aligned_free(_ptr)
+#else
+
+#include <stdlib.h>
+#define TRACKED_MALLOC(_size) malloc(_size)
+#define TRACKED_ALIGNED_MALLOC(_size, _alignment)                              \
+  aligned_alloc(_alignment, _size)
+#define TRACKED_ALIGNED_REALLOC(_ptr, _size, _alignment)                       \
+  assert(false) /* TODO: implement properly */
+#define TRACKED_REALLOC(_ptr, _size)  realloc(_ptr, _size)
+#define TRACKED_CALLOC(_count, _size) calloc(_count, _size)
+#define TRACKED_FREE(_ptr)            free(_ptr)
+#define TRACKED_ALIGNED_FREE(_ptr)    free(_ptr)
+#endif
 #endif
 
 u0 *tracked_malloc(usize _size, const char *_function);

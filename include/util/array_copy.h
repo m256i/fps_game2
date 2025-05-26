@@ -1,6 +1,7 @@
 #ifndef UTIL_ARRAY_COPY_H_
 #define UTIL_ARRAY_COPY_H_
 
+#include <util/safe_string.h>
 #include <common.h>
 #include <string.h>
 #include <assert.h>
@@ -23,10 +24,7 @@ inline char *strclone(char *_src) {
 }
 
 inline char *strnclone_s(char *_src, usize _maxsize) {
-  const usize len  = strnlen_s(_src, _maxsize);
-  char       *nstr = TRACKED_MALLOC(len + 1);
-  GAME_ASSERT(nstr);
-  strncpy_s(nstr, len + 1, _src, _maxsize);
+  char       *nstr = strcpy_safe( _src, _maxsize);
   return nstr;
 }
 

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <util/dbg/alloctrack.h>
 #include <common.h>
 #include <containers/str_hash_table.h>
@@ -63,7 +64,13 @@ u0 *tracked_aligned_malloc(
 ) {
   pthread_mutex_lock(&alloc_mutex);
   init();
+
+#ifdef _WIN64
   u0 *mem = _aligned_malloc(_size, _alignment);
+#else
+  u0 *mem = aligned_alloc(_alignment, _size);
+#endif
+  
   hashmap_set(
     alloc_map,
     &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
@@ -84,7 +91,13 @@ u0 *tracked_aligned_realloc(
     alloc_map,
     &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
   );
+  
+#ifdef _WIN64
   u0 *mem = _aligned_realloc(_ptr, _size, _alignment);
+#else
+  u0 *mem = aligned_alloc(_alignment, _size);
+  memcpy(mem, _ptr, _size);
+#endif
   hashmap_set(
     alloc_map,
     &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
@@ -153,7 +166,11 @@ u0 tracked_aligned_free(u0 *_ptr, const char *_function) {
     GAME_CRITICALF("free on NULL in %s", _function);
   }
 
+#ifdef _WIN64
   _aligned_free(_ptr);
+#else
+  free(_ptr);
+#endif
   pthread_mutex_unlock(&alloc_mutex);
 }
 

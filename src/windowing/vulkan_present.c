@@ -1,4 +1,7 @@
 // peak shitcode incoming
+
+#ifdef _WIN64
+
 #include <assert.h>
 #include <glad/glad.h>
 #include <util/dbg/alloctrack.h>
@@ -969,5 +972,6 @@ if (vkDestroyDebugUtilsMessengerEXT != NULL) {
   _context->initialized = false;
   memset(_context, 0, sizeof(*_context));
 }
+#endif
 
 // clang-format on

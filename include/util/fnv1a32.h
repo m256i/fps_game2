@@ -1,6 +1,7 @@
 #ifndef CONSTHASH_H_
 #define CONSTHASH_H_
 
+#include <util/safe_string.h>
 #include <common.h>
 #include <string.h>
 
@@ -45,7 +46,7 @@
 #define FNV1A32_CSTR_LEN(s, len) HASH_STR_##len(s)
 
 inline u32 fnv32_hash(const char *_str) {
-  const usize len  = strnlen_s(_str, 128);
+  const usize len  = strlen_safe(_str, 128);
   u32         hash = FNV_OFFSET;
   for (usize i = 0; i != len; i++) {
     hash = ((u8)_str[i] ^ hash) * FNV_PRIME;

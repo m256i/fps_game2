@@ -294,11 +294,17 @@ u0 vec3_normalize_inplace_impl_SSE(vec3 *const _v0) {
 }
 
 u0 init_mathlib(u0) {
+  #ifdef _WIN64
   i32 cpu_caps[4] = {0};
   __cpuid(cpu_caps, 1);
   const bool has_sse = !!(cpu_caps[2] & (1 << 20));
   __cpuid(cpu_caps, 7);
   const bool has_avx2 = !!(cpu_caps[1] & (1 << 5));
+#else
+  /* TODO: implement linux testing verison */
+  const bool has_sse =  true;
+  const bool has_avx2 =  true;
+#endif
 
   if (!has_sse) {
     GAME_WARNF("engine::mathlib: will not use SSE4.2 instructions");
@@ -430,11 +436,17 @@ u0 unit_test_mathlib(u0) {
   // SSE: disable flush-to-zero/denorm
   _mm_setcsr((_mm_getcsr() & ~(_MM_FLUSH_ZERO_MASK | _MM_DENORMALS_ZERO_MASK)));
 
+#ifdef _WIN64
   i32 cpu_caps[4] = {0};
   __cpuid(cpu_caps, 1);
   const bool has_sse = !!(cpu_caps[2] & (1 << 20));
   __cpuid(cpu_caps, 7);
   const bool has_avx2 = !!(cpu_caps[1] & (1 << 5));
+#else
+  /* TODO: implement linux testing verison */
+  const bool has_sse =  true;
+  const bool has_avx2 =  true;
+#endif
 
   if (has_sse) {
     goto test_sse;

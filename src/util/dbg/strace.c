@@ -1,12 +1,23 @@
 #include <stdatomic.h>
+
+#ifdef _WIN64
 #define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>
+#include  <windows.h>
 #include <dbghelp.h>
+#else 
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <execinfo.h>
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <pthread.h>
 #include <common.h>
 #include <util/dbg/alloctrack.h>
 
+#ifdef _WIN64
 typedef struct {
   uint64_t key;
   char    *value;
@@ -36,7 +47,23 @@ unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo);
 __attribute__((no_strace)) u0 setup_stacktrace(u0) {
   SetUnhandledExceptionFilter(unhandled_exception_handerl);
 }
+#else
 
+u0 signal_handler(i32 sig) {
+    u0 *buffer[64];
+    i32 nptrs = backtrace(buffer, 64);
+    fprintf(stderr, "=== Stack trace (most recent call) === error: %d\n", sig);
+    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+    exit(1);
+}
+
+u0 setup_stacktrace(u0) {
+  signal(SIGSEGV, signal_handler);
+  signal(SIGABRT, signal_handler);
+}
+#endif
+
+#ifdef _WIN64
 /*
 we dont need a debug macro check as gcc doesnt emit calls
 to this handler when building in release mode
@@ -232,3 +259,5 @@ __attribute__((no_strace)) char *hm_at(hashmap *hm, uptr key) {
     idx = (idx + 1) & hm->mask;
   }
 }
+
+#endif

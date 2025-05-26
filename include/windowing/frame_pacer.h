@@ -1,6 +1,7 @@
 #ifndef WINDOWING_FRAME_PACER_H_
 #define WINDOWING_FRAME_PACER_H_
 
+#ifdef _WIN64
 #include <ddraw.h>
 #include <common.h>
 #include <stdatomic.h>
@@ -77,5 +78,6 @@ u0    stop_tracking_present_time        (frame_pacer_context *const _ctx);
 VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent);
 ULONG WINAPI BufferCallback(EVENT_TRACE_LOGFILEW *);
 
+#endif
 // clang-format on
 #endif // WINDOWING_FRAME_PACER_H_

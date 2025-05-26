@@ -3,14 +3,19 @@
 
 #include <RGFW/RGFW.h>
 #include <common.h>
+
+#ifdef _WIN64
 #include <windowing/vulkan_present.h>
 #include <windowing/frame_pacer.h>
+#endif
 
 typedef bool (*WINDOW_RENDER_PROC)(void);
 
 typedef struct {
+#ifdef _WIN64
   vk_context          vk_ctx;
   frame_pacer_context fpc;
+#endif
   RGFW_window        *internal_window;
   usize               screen_width, screen_height;
   u32                 refresh_rate;

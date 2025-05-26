@@ -1,7 +1,9 @@
 #ifndef WINDOWING_VULKAN_PRESENT_H_
 #define WINDOWING_VULKAN_PRESENT_H_
 
+#ifdef _WIN64
 #define VK_USE_PLATFORM_WIN32_KHR
+
 #include <vulkan/vulkan.h>
 #include <glad/glad.h>
 #include <common.h>
@@ -82,5 +84,17 @@ usize   bind_vulkan_surface         (vk_context *ctx);
 u0      vulkan_present              (vk_context *ctx);
 u0      destroy_vulkan_context      (vk_context *_context);
 
+#else
+typedef enum {
+  /* renders and presents ASAP works best with gsync and high fps */
+  RENDER_MODE_IMMEDIATE,
+  /* renders and waits for vsync -> works no matter what but high latency */
+  RENDER_MODE_VSYNC,
+  /* renders and presents with accurate timing */
+  RENDER_MODE_FRAME_PACE_EXP
+  /* (experimental might not work but should result in lowest latency when
+     working)  */
+} render_mode;
+#endif
 // clang-format on
 #endif // WINDOWING_VULKAN_PRESENT_H_

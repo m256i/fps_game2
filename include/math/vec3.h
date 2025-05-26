@@ -2,7 +2,7 @@
 #define MATH_VECTOR_H_
 
 #include <common.h>
-#include <intrin.h>
+#include <immintrin.h>
 
 #define VEC3_NORM_TOLERANCE 1e-8f * 1e-8f
 

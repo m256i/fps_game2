@@ -8,10 +8,8 @@
 #include <windowing/game_window.h>
 
 #include <glad/glad.h>
-#include <wgl/glad_wgl.h>
 #include <windowing/vulkan_present.h>
 
-#include <ddraw.h>
 #include <math.h>
 
 #include <math/vec3.h>
