@@ -201,6 +201,8 @@ int main(u0) {
   // request_gl_resource(&rd2, &tex_handle);
   request_gl_resource(&rd3, &tex_handle);
 
+  free(testImageData);
+
   GAME_LOGF(
     "texture dimensions after load: %lu %lu",
     rd2.desc.image_texture.width,

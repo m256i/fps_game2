@@ -4,7 +4,7 @@
 #include <containers/str_indexer.h>
 #include <util/fnv1a32.h>
 
-inline char *portable_strdup(const char *s) {
+char *portable_strdup(const char *s) {
   size_t len  = strlen(s) + 1;
   char  *copy = malloc(len);
   if (!copy) return NULL;
@@ -12,7 +12,7 @@ inline char *portable_strdup(const char *s) {
 }
 
 /* grow table to new_capacity, re-inserting all live entries */
-inline u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
+u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
   hash_slot *new_data = calloc(new_capacity, sizeof *new_data);
   if (!new_data) {
     GAME_CRITICALF("OOM");
@@ -36,7 +36,7 @@ inline u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
 }
 
 /* find slot for hash+key (either existing or first free/tombstone) */
-inline usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
+usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
   GAME_ASSERT(t->bucket_count > 0);
   usize idx = (usize)(hash % t->bucket_count);
   for (usize probes = 0; probes < t->bucket_count; probes++) {

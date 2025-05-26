@@ -5065,7 +5065,7 @@ void RGFW_window_setName(RGFW_window* win, const char* name) {
 	RGFW_LOAD_ATOM(_NET_WM_NAME);
 	XChangeProperty(
 		win->src.display, win->src.window, _NET_WM_NAME, RGFW_XUTF8_STRING,
-		8, PropModeReplace, (u8*)name, 256
+		8, PropModeReplace, (u8*)name, strlen(name)
 	);
 	#endif
 	#ifdef RGFW_WAYLAND
@@ -5580,7 +5580,7 @@ RGFW_monitor RGFW_XCreateMonitor(i32 screen) {
 		float physW = (float)info->mm_width / 25.4f;
 		float physH = (float)info->mm_height / 25.4f;
 
-		RGFW_MEMCPY(monitor.name, info->name, 128);
+		RGFW_MEMCPY(monitor.name, info->name, strlen(info->name));
 
 	if ((u8)physW && (u8)physH) {
 		monitor.physW = physW;

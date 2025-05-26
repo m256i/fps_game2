@@ -29,6 +29,8 @@ if DEBUGMODE == true
   ]
   if host_machine.kernel() == 'nt'
     c_compiler_args += ('-fplugin=' + meson.project_source_root() + '/libftrace.dll')
+  else
+    c_compiler_args += ['-fsanitize=address', '-fsanitize=undefined']
   endif
 else
   c_compiler_args = [
@@ -105,7 +107,11 @@ else
     '-lGL',
     '-lX11',
     '-lm',
-    '-lXrandr'
+    '-lXrandr',
+    '-fsanitize=address',
+    '-fsanitize=undefined',
+    '-lasan',
+    '-lubsan'
   ]
 endif
 

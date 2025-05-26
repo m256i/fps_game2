@@ -1,4 +1,5 @@
 #include <glad/glad.h>
+#include <stdio.h>
 #include <windowing/game_window.h>
 #ifdef _WIN64
 #define RGFW_EXPOSE_NATIVE_WIN32
@@ -216,7 +217,8 @@ u0 create_global_window(
     _name,
     winsize,
     RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor 
-#ifdef _WIN64  
+
+  #ifdef _WIN64  
     | RGFW_windowNoInitAPI
 #endif
   );
