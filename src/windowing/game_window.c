@@ -216,12 +216,12 @@ u0 create_global_window(
   win = RGFW_createWindow(
     _name,
     winsize,
-    RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor 
-
+    RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor
   #ifdef _WIN64  
     | RGFW_windowNoInitAPI
 #endif
   );
+
   RGFW_window_setFullscreen(win, RGFW_TRUE);
 
 #ifdef _WIN64
@@ -240,6 +240,13 @@ u0 create_global_window(
     GAME_CRITICALF("failed to initialize glad! exiting.");
     exit(1);
   }
+  /* since create_gl_context() is a nop on linux */
+#ifdef GAME_DEBUG
+  glEnable(GL_DEBUG_OUTPUT);
+  glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+  glDebugMessageCallback(debug_callback, 0);
+  GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
+#endif
 #endif
 
   RGFW_setFocusCallback(on_focus_callback);

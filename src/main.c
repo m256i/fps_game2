@@ -32,7 +32,7 @@ const char *vertex_shader_src =
   "uniform float OffsetY;"
   "void main() {\n"
   "    oTexCoords = aTexCoords;\n"
-  "    gl_Position = vec4(aPos.x + OffsetX, aPos.y + OffsetY, 0.0, 1.0);\n"
+  "    gl_Position = vec4(aPos.x * 2 + OffsetX, aPos.y * 2 + OffsetY, 0.0, 1.0);\n"
   "}\n";
 
 const char *fragment_shader_src = "#version 460 core\n"
@@ -88,10 +88,10 @@ bool render(u0) {
 
 /* REALLY IMPORTANT FUNCTION DO NOT REMOVE! */
 u32 *make_mandelbrot_image(u0) {
-  const static usize WIDTH  = 2000;
-  const static usize HEIGHT = 1000;
+  const static usize WIDTH  = 3000;
+  const static usize HEIGHT = 2000;
 
-  u32 *img = malloc(sizeof(u32) * WIDTH * HEIGHT);
+  u32 *img = calloc(sizeof(u32) * WIDTH * HEIGHT, 1);
   if (!img) return NULL;
 
   const f64 xmin = -2.0, xmax = 1.0;
@@ -109,8 +109,11 @@ u32 *make_mandelbrot_image(u0) {
         zr      = tmp;
         ++it;
       }
-      u8 c               = (u8)(255 * it / (1000 - 1));
-      img[j * WIDTH + i] = (c << 24) | (c << 16) | (c << 8) | 0xFF;
+      if (1000 - it < 10) {
+        img[j * WIDTH + i] = 0xff010101;
+      } else {
+        img[j * WIDTH + i] = ((it * 2) | ((u32)sqrt(it * it * it)) << 16)| 0xff000000;
+      }
     }
   }
   return img;
@@ -186,13 +189,13 @@ int main(u0) {
     .resource_name = "test_textue",
     .desc.texture = {
       .creation_info_type = RESOURCE_CREATION_INFO_TYPE_TEXTURE,
-      .width = 2000,
-      .height = 1000,
+      .width = 3000,
+      .height = 2000,
       .format = GL_RGBA,
       .internal_format = GL_RGBA8,
       .wrap_mode = GL_REPEAT,
       .image_data = (u8*)testImageData,
-      .compress = true
+      .compress = false
     }
   };
   // clang-format on
