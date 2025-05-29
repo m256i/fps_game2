@@ -20,7 +20,7 @@ if DEBUGMODE == true
     '-g',
     '-static-libgcc', 
     '-static-libstdc++',
-    '-O2',
+    '-Og',
     '-march=native',
     '-mtune=native',
     '-fomit-frame-pointer',

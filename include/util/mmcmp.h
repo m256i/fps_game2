@@ -9,7 +9,7 @@ typedef struct {
 } mmcmp_msk;
 
 /* masked memcmp, API is obvious */
-inline i32 mmcmp(
+static inline i32 mmcmp(
   const void      *_buf0,
   const void      *_buf1,
   usize            _size,

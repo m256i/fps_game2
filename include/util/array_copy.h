@@ -8,14 +8,14 @@
 
 #include <util/dbg/alloctrack.h>
 
-inline u0 *memclone(u0 *_src, usize _src_size) {
+static inline u0 *memclone(u0 *_src, usize _src_size) {
   u0 *ptr = TRACKED_MALLOC(_src_size);
   GAME_ASSERT(ptr);
   memcpy(ptr, _src, _src_size);
   return ptr;
 }
 
-inline char *strclone(char *_src) {
+static inline char *strclone(char *_src) {
   const usize len  = strlen(_src);
   char       *nstr = TRACKED_MALLOC(len + 1);
   GAME_ASSERT(nstr);
@@ -23,7 +23,7 @@ inline char *strclone(char *_src) {
   return nstr;
 }
 
-inline char *strnclone_s(char *_src, usize _maxsize) {
+static inline char *strnclone_s(char *_src, usize _maxsize) {
   char       *nstr = strcpy_safe( _src, _maxsize);
   return nstr;
 }

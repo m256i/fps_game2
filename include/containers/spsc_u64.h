@@ -21,7 +21,7 @@
     spsc_u64_##N##_index_t idx;                                                \
     _Alignas(64) u64 buffer[N];                                                \
   } spsc_u64_##N##_ring_t;                                                     \
-  inline void spsc_u64_##N##_init(spsc_u64_##N##_ring_t *q) {                  \
+  static inline void spsc_u64_##N##_init(spsc_u64_##N##_ring_t *q) {           \
     atomic_init(&q->idx.head, 0);                                              \
     atomic_init(&q->idx.tail, 0);                                              \
   }                                                                            \

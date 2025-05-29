@@ -7,7 +7,7 @@
 #include <util/dbg/alloctrack.h>
 
 /* realloc that 0s out the new buffer part */
-inline u0 *zrealloc(u0 *_mem, usize _oldsize, usize _newsize) {
+static inline u0 *zrealloc(u0 *_mem, usize _oldsize, usize _newsize) {
   if (_oldsize == _newsize) {
     return _mem;
   }

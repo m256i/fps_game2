@@ -5,7 +5,7 @@
 #include <glad/glad.h>
 #include <common.h>
 
-inline bool is_valid_vertex_attrib_type(GLenum type) {
+static inline bool is_valid_vertex_attrib_type(GLenum type) {
   switch (type) {
   case GL_BYTE:
   case GL_UNSIGNED_BYTE:
@@ -24,7 +24,7 @@ inline bool is_valid_vertex_attrib_type(GLenum type) {
   }
 }
 
-inline bool is_valid_image_fmt(GLenum format) {
+static inline bool is_valid_image_fmt(GLenum format) {
   switch (format) {
   // Base formats
   case GL_RED:
@@ -57,7 +57,7 @@ inline bool is_valid_image_fmt(GLenum format) {
   }
 }
 
-inline bool is_valid_internal_image_fmt(GLenum format) {
+static inline bool is_valid_internal_image_fmt(GLenum format) {
   switch (format) {
   // Unsigned normalized color formats
   case GL_R8:
@@ -117,7 +117,7 @@ inline bool is_valid_internal_image_fmt(GLenum format) {
   }
 }
 
-inline usize gl_type_to_size(GLenum _gl_type) {
+static inline usize gl_type_to_size(GLenum _gl_type) {
   switch (_gl_type) {
   case GL_UNSIGNED_BYTE:  return sizeof(GLubyte);
   case GL_BYTE:           return sizeof(GLbyte);
@@ -133,7 +133,7 @@ inline usize gl_type_to_size(GLenum _gl_type) {
   }
 }
 
-inline const char *gl_type_to_str(GLenum _gl_type) {
+static inline const char *gl_type_to_str(GLenum _gl_type) {
   switch (_gl_type) {
   case GL_UNSIGNED_BYTE:  return "GL_UNSIGNED_BYTE";
   case GL_BYTE:           return "GL_BYTE";
@@ -172,7 +172,7 @@ inline const char *gl_type_to_str(GLenum _gl_type) {
 #define GL_CALL(fn) fn
 #endif // GAME_DEBUG
 
-static bool supports_bindless_textures(u0) {
+static inline bool supports_bindless_textures(u0) {
   GLuint tex;
   u32    dummy[4 * 4] = {0};
   GL_CALL(glGenTextures(1, &tex));

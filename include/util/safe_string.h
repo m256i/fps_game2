@@ -5,7 +5,7 @@
 #include <common.h>
 #include <string.h>
 
-inline usize strlen_safe(const char* _str, usize _maxlen) {
+static inline usize strlen_safe(const char* _str, usize _maxlen) {
     usize l = 0;
     while (l < _maxlen && _str[l] != '\0') {
         ++l;
@@ -13,7 +13,7 @@ inline usize strlen_safe(const char* _str, usize _maxlen) {
     return l;
 }
 
-inline usize strcmp_safe(const char* _str0, const char* _str1, usize _maxlen) {
+static inline usize strcmp_safe(const char* _str0, const char* _str1, usize _maxlen) {
     usize i = 0;
     for (; i < _maxlen; ++i) {
         u8 ca = (u8)_str0[i];
@@ -28,7 +28,7 @@ inline usize strcmp_safe(const char* _str0, const char* _str1, usize _maxlen) {
     return 0;
 }
 
-inline char *strcpy_safe(const char *_src, usize _bufsize) {
+static inline char *strcpy_safe(const char *_src, usize _bufsize) {
     if (!_bufsize) {
         return NULL;
     }
