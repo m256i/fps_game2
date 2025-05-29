@@ -511,7 +511,8 @@ struct nk_context *nk_glfw3_init(RGFW_window *win,
   return &glfw.ctx;
 }
 
-void nk_glfw3_font_stash_begin(struct nk_font_atlas **atlas) {
+void nk_glfw3_font_stash_begin(void **_atlas) {
+  nk_font_atlas **atlas = (nk_font_atlas **)_atlas;
   nk_font_atlas_init_default(&glfw.atlas);
   nk_font_atlas_begin(&glfw.atlas);
   *atlas = &glfw.atlas;

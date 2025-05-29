@@ -4305,7 +4305,7 @@ enum nk_font_atlas_format {
     NK_FONT_ATLAS_RGBA32
 };
 
-struct nk_font_atlas {
+typedef struct nk_font_atlas {
     void *pixel;
     int tex_width;
     int tex_height;
@@ -4322,7 +4322,7 @@ struct nk_font_atlas {
     struct nk_font *fonts;
     struct nk_font_config *config;
     int font_num;
-};
+} nk_font_atlas;
 
 /** some language glyph codepoint ranges */
 NK_API const nk_rune *nk_font_default_glyph_ranges(void);
