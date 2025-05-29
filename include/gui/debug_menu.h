@@ -10,8 +10,8 @@ enum nk_glfw_init_state{
 
 struct nk_context*   nk_glfw3_init(RGFW_window *win, enum nk_glfw_init_state, int max_vertex_buffer, int max_element_buffer);
 void                 nk_glfw3_shutdown(void);
-// void                 nk_glfw3_font_stash_begin(struct nk_font_atlas **atlas);
-// void                 nk_glfw3_font_stash_end(void);
+void                 nk_glfw3_font_stash_begin(struct nk_font_atlas **atlas);
+void                 nk_glfw3_font_stash_end(void);
 void                 nk_glfw3_new_frame(void);
 void                 nk_glfw3_render(void);
 
