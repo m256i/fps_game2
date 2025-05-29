@@ -173,6 +173,11 @@ static inline const char *gl_type_to_str(GLenum _gl_type) {
 #endif // GAME_DEBUG
 
 static inline bool supports_bindless_textures(u0) {
+  if(!glad_glGetTextureHandleARB || !glad_glMakeTextureHandleResidentARB) {
+    GAME_LOGF("host system doesn't support bindless textures");
+    return false;
+  }
+
   GLuint tex;
   u32    dummy[4 * 4] = {0};
   GL_CALL(glGenTextures(1, &tex));
