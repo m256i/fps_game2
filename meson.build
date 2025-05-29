@@ -70,7 +70,7 @@ endforeach
 source_files = run_command('python', 'globber.py', './', '*.c', check : true).stdout().strip().split('\n')
 
 if host_machine.kernel() == 'nt'
-  vulkan_lib = run_command('python', '-c', 'import os; print(os.environ["VULKAN_SDK"])').stdout().strip().replace('\\', '/')
+  vulkan_lib = run_command('python', '-c', 'import os; print(os.environ["VULKAN_SDK"])').stdout().strip().replace('\\', '/') + '/Lib'
 else
   vulkan_lib = run_command('echo', '$VULKAN_SDK/lib').stdout().strip().replace('\\', '/')
 endif
