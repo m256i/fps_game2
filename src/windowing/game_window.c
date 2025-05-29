@@ -256,6 +256,10 @@ u0 create_global_window(
   global_window->internal_window = win;
 }
 
+RGFW_window* get_global_internal_window(u0) {
+  return global_window->internal_window;
+}
+
 u0 window_set_render_proc(WINDOW_RENDER_PROC _proc) {
   GAME_ASSERT(
     global_window && global_window->internal_window &&

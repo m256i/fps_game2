@@ -1,4 +1,4 @@
-#include "renderer/gl_api.h"
+#include <glad/glad.h>
 #include <RGFW/RGFW.h>
 #include <common.h>
 #include <log/log.h>
@@ -7,7 +7,6 @@
 
 #include <windowing/game_window.h>
 
-#include <glad/glad.h>
 #include <windowing/vulkan_present.h>
 
 #include <math.h>
@@ -22,6 +21,9 @@
 #include <util/dbg/strace.h>
 
 #include <renderer/gl_resource_manager.h>
+
+#include <gui/debug_menu.h>
+#include <gui/nuklear.h>
 
 const char *vertex_shader_src =
   "#version 460 core\n"
@@ -48,31 +50,72 @@ GLint  offsetY_loc;
 u64    rendered_frames = 0;
 GLuint program;
 
+struct nk_context *ctx;
+
 gl_resource_handle rh = {0}, tex_handle = {0};
 
+#define MAX_VERTEX_BUFFER 512 * 1024
+#define MAX_ELEMENT_BUFFER 128 * 1024
+
+struct nk_colorf bg;
+
 bool render(u0) {
-  f64        old_time    = RGFW_getTimeNS();
-  float      time        = (float)RGFW_getTimeNS() / 1e9 * 10;
-  float      offset      = sinf(time * 1) * 0.5f;
-  /* p100 fakelag */
-  // Sleep(6);
-  RGFW_point mousepos    = RGFW_getGlobalMousePoint();
-  float      mousepos_x  = (f32)mousepos.x / RGFW_getScreenSize().w;
-  float      mousepos_y  = (f32)mousepos.y / RGFW_getScreenSize().h;
-  mousepos.y            /= RGFW_getScreenSize().h;
+  nk_glfw3_new_frame();
 
-  GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
-  GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
-  GL_CALL(glUseProgram(program));
-  GL_CALL(glUniform1f(offsetX_loc, mousepos_x * 2.f - 1));
-  GL_CALL(glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f));
-  GL_CALL(glBindTexture(GL_TEXTURE_2D, tex_handle->internal_handle));
-  GL_CALL(glBindVertexArray(rh->internal_handle));
-  GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+  if (nk_begin(ctx, "Demo", nk_rect(50, 50, 230, 250),
+            NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
+            NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
+  {
+    enum {EASY, HARD};
+    static int op = EASY;
+    static int property = 20;
+    
+    nk_layout_row_static(ctx, 30, 80, 1);
+    if (nk_button_label(ctx, "button"))
+        fprintf(stdout, "button pressed\n");
+    nk_layout_row_dynamic(ctx, 30, 2);
+    
+    if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+    if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+    
+    nk_layout_row_dynamic(ctx, 25, 1);
+    nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
+    nk_layout_row_dynamic(ctx, 20, 1);
+    nk_label(ctx, "background:", NK_TEXT_LEFT);
+    nk_layout_row_dynamic(ctx, 25, 1);
 
-  f64 ct   = RGFW_getTimeNS();
-  // f64 dt = ct - old_time;
-  old_time = ct;
+    if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx),400))) {
+        nk_layout_row_dynamic(ctx, 120, 1);
+        bg = nk_color_picker(ctx, bg, NK_RGBA);
+        nk_layout_row_dynamic(ctx, 25, 1);
+        bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
+        bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
+        bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
+        bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
+        nk_combo_end(ctx);
+    }
+    nk_end(ctx);
+  }
+  nk_glfw3_render();
+
+  // f64        old_time    = RGFW_getTimeNS();
+  // float      time        = (float)RGFW_getTimeNS() / 1e9 * 10;
+  // float      offset      = sinf(time * 1) * 0.5f;
+  // /* p100 fakelag */
+  // // Sleep(6);
+  // RGFW_point mousepos    = RGFW_getGlobalMousePoint();
+  // float      mousepos_x  = (f32)mousepos.x / RGFW_getScreenSize().w;
+  // float      mousepos_y  = (f32)mousepos.y / RGFW_getScreenSize().h;
+  // mousepos.y            /= RGFW_getScreenSize().h;
+
+  // GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
+  // GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+  // GL_CALL(glUseProgram(program));
+  // GL_CALL(glUniform1f(offsetX_loc, mousepos_x * 2.f - 1));
+  // GL_CALL(glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f));
+  // GL_CALL(glBindTexture(GL_TEXTURE_2D, tex_handle->internal_handle));
+  // GL_CALL(glBindVertexArray(rh->internal_handle));
+  // GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
   if (rendered_frames % 300 == 0) {
     // printf("render fps: %llu\n", (usize)(1e9 / dt));
@@ -211,6 +254,8 @@ int main(u0) {
     rd2.desc.image_texture.width,
     rd2.desc.image_texture.height
   );
+
+  ctx = nk_glfw3_init(get_global_internal_window(), NK_GLFW3_INSTALL_CALLBACKS, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
 
   GLuint vs = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vs, 1, &vertex_shader_src, NULL);
