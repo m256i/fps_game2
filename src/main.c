@@ -1,27 +1,17 @@
+#include <glad/glad.h>
 #include <RGFW/RGFW.h>
 #include <common.h>
-#include <glad/glad.h>
 #include <log/log.h>
 #include <stdio.h>
 #include <util/dbg/alloctrack.h>
-
 #include <windowing/game_window.h>
-
 #include <windowing/vulkan_present.h>
-
 #include <math.h>
-
 #include <math/vec3.h>
-
 #include <windowing/frame_pacer.h>
-
 #include <containers/str_hash_table.h>
-// #include <renderer/gl_resource_manager.h>
-
 #include <util/dbg/strace.h>
-
 #include <renderer/gl_resource_manager.h>
-
 #include <gui/debug_menu.h>
 #include <gui/nuklear.h>
 #include <renderer/gl_api.h>
