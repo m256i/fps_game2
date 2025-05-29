@@ -1,5 +1,5 @@
-#include <RGFW/RGFW.h>
 #include <glad/glad.h>
+#include <RGFW/RGFW.h>
 #include <gui/debug_menu.h>
 #include <renderer/gl_api.h>
 #include <stdbool.h>
