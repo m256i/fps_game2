@@ -1,6 +1,6 @@
-#include <glad/glad.h>
 #include <RGFW/RGFW.h>
 #include <common.h>
+#include <glad/glad.h>
 #include <log/log.h>
 #include <stdio.h>
 #include <util/dbg/alloctrack.h>
@@ -46,39 +46,38 @@ const char *fragment_shader_src = "#version 460 core\n"
                                   "    FragColor = texture(tex, oTexCoords);\n"
                                   "}\n";
 
-GLint  offsetX_loc;
-GLint  offsetY_loc;
-u64    rendered_frames = 0;
+GLint offsetX_loc;
+GLint offsetY_loc;
+u64 rendered_frames = 0;
 GLuint program;
 
 struct nk_context *ctx;
 
 gl_resource_handle rh = {0}, tex_handle = {0};
 
-#define MAX_VERTEX_BUFFER  512 * 1024
+#define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
 struct nk_colorf bg;
 
 bool render(u0) {
   nk_glfw3_new_frame();
-  if (nk_begin(
-        ctx,
-        "Demo",
-        nk_rect(50, 50, 230, 250),
-        NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
-          NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE
-      )) {
+  if (nk_begin(ctx, "Demo", nk_rect(50, 50, 230, 250),
+               NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
+                   NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE)) {
     enum { EASY, HARD };
-    static int op       = EASY;
+    static int op = EASY;
     static int property = 20;
 
     nk_layout_row_static(ctx, 30, 80, 1);
-    if (nk_button_label(ctx, "button")) GAME_LOGF("button pressed");
+    if (nk_button_label(ctx, "button"))
+      GAME_LOGF("button pressed");
     nk_layout_row_dynamic(ctx, 30, 2);
 
-    if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
-    if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+    if (nk_option_label(ctx, "easy", op == EASY))
+      op = EASY;
+    if (nk_option_label(ctx, "hard", op == HARD))
+      op = HARD;
 
     nk_layout_row_dynamic(ctx, 25, 1);
     nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
@@ -86,11 +85,8 @@ bool render(u0) {
     nk_label(ctx, "background:", NK_TEXT_LEFT);
     nk_layout_row_dynamic(ctx, 25, 1);
 
-    if (nk_combo_begin_color(
-          ctx,
-          nk_rgb_cf(bg),
-          nk_vec2(nk_widget_width(ctx), 400)
-        )) {
+    if (nk_combo_begin_color(ctx, nk_rgb_cf(bg),
+                             nk_vec2(nk_widget_width(ctx), 400))) {
       nk_layout_row_dynamic(ctx, 120, 1);
       bg = nk_color_picker(ctx, bg, NK_RGBA);
       nk_layout_row_dynamic(ctx, 25, 1);
@@ -100,22 +96,19 @@ bool render(u0) {
       bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
       nk_combo_end(ctx);
     }
-    nk_end(ctx);
   }
+  nk_end(ctx);
 
   GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
-  GL_CALL(
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
-  );
+  GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                  GL_STENCIL_BUFFER_BIT));
 
   nk_glfw3_render();
 
   if (rendered_frames % 300 == 0) {
     // printf("render fps: %llu\n", (usize)(1e9 / dt));
-    printf(
-      "last input->photon latency: %lfms\n",
-      ((f64)window_get_last_input_to_photon_latency()) / 1e6
-    );
+    printf("last input->photon latency: %lfms\n",
+           ((f64)window_get_last_input_to_photon_latency()) / 1e6);
   }
 
   ++rendered_frames;
@@ -124,11 +117,12 @@ bool render(u0) {
 
 /* REALLY IMPORTANT FUNCTION DO NOT REMOVE! */
 u32 *make_mandelbrot_image(u0) {
-  const static usize WIDTH  = 3000;
+  const static usize WIDTH = 3000;
   const static usize HEIGHT = 2000;
 
   u32 *img = calloc(sizeof(u32) * WIDTH * HEIGHT, 1);
-  if (!img) return NULL;
+  if (!img)
+    return NULL;
 
   // const f64 xmin = -2.0, xmax = 1.0;
   // const f64 ymin = -1.0, ymax = 1.0;
@@ -176,8 +170,8 @@ int main(u0) {
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
   float vertices[] = {
-    0.5f,  0.5f,  0.0f, 1.0f, 1.0f, 0.5f,  -0.5f, 0.0f, 1.0f, 0.0f,
-    -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
+      0.5f,  0.5f,  0.0f, 1.0f, 1.0f, 0.5f,  -0.5f, 0.0f, 1.0f, 0.0f,
+      -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
   };
 
   unsigned int indices[] = {0, 1, 3, 1, 2, 3};
@@ -243,18 +237,11 @@ int main(u0) {
 
   free(testImageData);
 
-  GAME_LOGF(
-    "texture dimensions after load: %lu %lu",
-    rd2.desc.image_texture.width,
-    rd2.desc.image_texture.height
-  );
+  GAME_LOGF("texture dimensions after load: %lu %lu",
+            rd2.desc.image_texture.width, rd2.desc.image_texture.height);
 
-  ctx = nk_glfw3_init(
-    get_global_internal_window(),
-    NK_GLFW3_INSTALL_CALLBACKS,
-    MAX_VERTEX_BUFFER,
-    MAX_ELEMENT_BUFFER
-  );
+  ctx = nk_glfw3_init(get_global_internal_window(), NK_GLFW3_INSTALL_CALLBACKS,
+                      MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
 
   {
     struct nk_font_atlas *atlas;

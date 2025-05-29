@@ -171,4 +171,46 @@ inline const char *gl_type_to_str(GLenum _gl_type) {
 #else
 #define GL_CALL(fn) fn
 #endif // GAME_DEBUG
+
+static bool supports_bindless_textures(u0) {
+  GLuint tex;
+  u32    dummy[4 * 4] = {0};
+  GL_CALL(glGenTextures(1, &tex));
+  GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+  GL_CALL(glTexImage2D(
+    GL_TEXTURE_2D,
+    0,
+    GL_RGBA8,
+    4,
+    4,
+    0,
+    GL_RGBA,
+    GL_UNSIGNED_BYTE,
+    dummy
+  ));
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  while (glGetError() != GL_NO_ERROR) {
+    continue;
+  }
+
+  GLuint64 handle = glGetTextureHandleARB(tex);
+  GL_CALL(glMakeTextureHandleResidentARB(handle));
+  GLenum err = glGetError();
+
+  glMakeTextureHandleNonResidentARB(handle);
+  glDeleteTextures(1, &tex);
+
+  if (err == GL_NO_ERROR) {
+    GAME_LOGF("host system supports bindless textures");
+  } else {
+    GAME_LOGF("host system doesn't support bindless textures");
+  }
+  return (err == GL_NO_ERROR);
+}
+
 #endif // RENDERER_GL_API_H_
