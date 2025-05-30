@@ -3,21 +3,9 @@
 
 #include <common.h>
 #include <immintrin.h>
+#include <math.h>
 
 #define VEC3_NORM_TOLERANCE 1e-8f * 1e-8f
-
-/*
-TODO: make another file mathlib.h and mathlib.c
-for initialize_mathlib() and unit_test_mathlib()
-*/
-
-/* init the math library */
-u0 init_mathlib(u0);
-
-/* call when you go from vec3 instructions to matrix instructions */
-u0 hint_from_sse_to_avx(u0);
-u0 hint_from_avx_to_sse(u0);
-u0 unit_test_mathlib(u0);
 
 typedef struct {
   _Alignas(32) union {
@@ -34,61 +22,278 @@ typedef struct {
   };
 } vec3;
 
-inline vec3 make_vec3(f32 _x, f32 _y, f32 _z) {
+/*
+TODO: move to general header not vec3.h
+*/
+/* call when you go from vec3 funcs to matrix funcs */
+#ifdef __AVX2__
+static inline u0 break_depchain(u0) { _mm256_zeroupper(); }
+#else
+static inline u0 break_depchain(u0) {}
+#endif
+
+static inline vec3 make_vec3(f32 _x, f32 _y, f32 _z) {
   return (vec3){.x = _x, .y = _y, .z = _z};
 }
 
+#if defined(__SSE4_2__) && !defined(MATHLIB_DISABLE_SIMD)
+static inline vec3 vec3_add(const vec3 *const _v0, const vec3 *const _v1) {
+  return (vec3){.vec128 = _mm_add_ps(_v0->vec128, _v1->vec128)};
+}
+
+static inline vec3 vec3_sub(const vec3 *const _v0, const vec3 *const _v1) {
+  return (vec3){.vec128 = _mm_sub_ps(_v0->vec128, _v1->vec128)};
+}
+
+static inline vec3 vec3_scale(const vec3 *const _v0, f32 _s) {
+  return (vec3){.vec128 = _mm_mul_ps(_v0->vec128, _mm_load_ps1(&_s))};
+}
+
+static inline f32 vec3_dot(const vec3 *const _v0, const vec3 *const _v1) {
+  const __m128 mul  = _mm_mul_ps(_v0->vec128, _v1->vec128);
+  __m128       shuf = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 3, 0, 1));
+  __m128       sums = _mm_add_ps(mul, shuf);
+  shuf              = _mm_movehl_ps(shuf, sums);
+  sums              = _mm_add_ss(sums, shuf);
+  return _mm_cvtss_f32(sums);
+}
+
+static inline vec3 vec3_cross(const vec3 *const _v0, const vec3 *const _v1) {
+  __m128 tmp0 =
+    _mm_shuffle_ps(_v0->vec128, _v0->vec128, _MM_SHUFFLE(3, 0, 2, 1));
+  __m128 tmp1 =
+    _mm_shuffle_ps(_v1->vec128, _v1->vec128, _MM_SHUFFLE(3, 1, 0, 2));
+  __m128 tmp2 = _mm_mul_ps(tmp0, _v1->vec128);
+  __m128 tmp3 = _mm_mul_ps(tmp0, tmp1);
+  __m128 tmp4 = _mm_shuffle_ps(tmp2, tmp2, _MM_SHUFFLE(3, 0, 2, 1));
+  return (vec3){.vec128 = _mm_sub_ps(tmp3, tmp4)};
+}
+
+static inline f32 vec3_length(const vec3 *const _v0) {
+  return sqrtf(vec3_dot(_v0, _v0));
+}
+
+static inline f32 vec3_dist(const vec3 *const _v0, const vec3 *const _v1) {
+  const vec3 diff = vec3_sub(_v1, _v0);
+  return vec3_length(&diff);
+}
+
+static inline vec3 vec3_normalize(const vec3 *const _v) {
+  __m128 dot     = _mm_mul_ps(_v->vec128, _v->vec128);
+  __m128 shuf    = _mm_shuffle_ps(dot, dot, _MM_SHUFFLE(3, 0, 2, 1));
+  __m128 sums    = _mm_add_ps(dot, shuf);
+  shuf           = _mm_movehl_ps(shuf, sums);
+  sums           = _mm_add_ss(sums, shuf);
+  __m128 inv_len = _mm_rsqrt_ss(sums);
+  inv_len        = _mm_shuffle_ps(inv_len, inv_len, 0x00);
+  return (vec3){.vec128 = _mm_mul_ps(_v->vec128, inv_len)};
+}
+
+static inline vec3 vec3_normalize_safe(const vec3 *const _v) {
+  f32 len = vec3_length(_v);
+  if (len > VEC3_NORM_TOLERANCE) {
+    f32 inv = 1.0f / len;
+    return vec3_scale(_v, inv);
+  }
+  return (vec3){0};
+}
+
+static inline f32
+vec3_angle_between(const vec3 *const _v0, const vec3 *const _v1) {
+#ifdef GAME_DEBUG
+  GAME_ASSERT(vec3_length(_v0) > 0.f);
+  GAME_ASSERT(vec3_length(_v1) > 0.f);
+#endif
+  return acosf(vec3_dot(_v0, _v1) / (vec3_length(_v0) * vec3_length(_v1)));
+}
+
+static inline f32
+vec3_angle_between_normalized(const vec3 *const _v0, const vec3 *const _v1) {
+  return acosf(vec3_dot(_v0, _v1));
+}
+
+static inline bool
+vec3_approx_eq(const vec3 *const _v0, const vec3 *const _v1, f32 _tol) {
+  return vec3_dist(_v0, _v1) <= _tol;
+}
+
+static inline bool vec3_equal(const vec3 *const _v0, const vec3 *const _v1) {
+  return vec3_dist(_v0, _v1) <= __FLT_EPSILON__;
+}
+
+static inline u0 vec3_add_inplace(
+  vec3 *const       _res,
+  const vec3 *const _v0,
+  const vec3 *const _v1
+) {
+  _res->vec128 = _mm_add_ps(_v0->vec128, _v1->vec128);
+}
+
+static inline u0
+vec3_scale_inplace(vec3 *const _res, const vec3 *const _v0, f32 _s) {
+  _res->vec128 = _mm_mul_ps(_v0->vec128, _mm_load1_ps(&_s));
+}
+
+static inline u0 vec3_sub_inplace(
+  vec3 *const       _res,
+  const vec3 *const _v0,
+  const vec3 *const _v1
+) {
+  _res->vec128 = _mm_sub_ps(_v0->vec128, _v1->vec128);
+}
+
+static inline u0 vec3_cross_inplace(
+  vec3 *const       _res,
+  const vec3 *const _v0,
+  const vec3 *const _v1
+) {
+  __m128 tmp0 =
+    _mm_shuffle_ps(_v0->vec128, _v0->vec128, _MM_SHUFFLE(3, 0, 2, 1));
+  __m128 tmp1 =
+    _mm_shuffle_ps(_v1->vec128, _v1->vec128, _MM_SHUFFLE(3, 1, 0, 2));
+  __m128 tmp2  = _mm_mul_ps(tmp0, _v1->vec128);
+  __m128 tmp3  = _mm_mul_ps(tmp0, tmp1);
+  __m128 tmp4  = _mm_shuffle_ps(tmp2, tmp2, _MM_SHUFFLE(3, 0, 2, 1));
+  _res->vec128 = _mm_sub_ps(tmp3, tmp4);
+}
+
+static inline u0 vec3_normalize_inplace(vec3 *const _v0) {
+  __m128 dot     = _mm_mul_ps(_v0->vec128, _v0->vec128);
+  __m128 shuf    = _mm_shuffle_ps(dot, dot, _MM_SHUFFLE(3, 0, 2, 1));
+  __m128 sums    = _mm_add_ps(dot, shuf);
+  shuf           = _mm_movehl_ps(shuf, sums);
+  sums           = _mm_add_ss(sums, shuf);
+  __m128 inv_len = _mm_rsqrt_ss(sums);
+  inv_len        = _mm_shuffle_ps(inv_len, inv_len, 0x00);
+  _v0->vec128    = _mm_mul_ps(_v0->vec128, inv_len);
+}
+
+#else
+static inline vec3 vec3_add(const vec3 *const _v0, const vec3 *const _v1) {
+  return (vec3){.r = _v0->r + _v1->r,
+                .g = _v0->g + _v1->g,
+                .b = _v0->b + _v1->b};
+}
+
+static inline vec3 vec3_sub(const vec3 *const _v0, const vec3 *const _v1) {
+  return (vec3){.r = _v0->r - _v1->r,
+                .g = _v0->g - _v1->g,
+                .b = _v0->b - _v1->b};
+}
+
+static inline vec3 vec3_scale(const vec3 *const _v0, f32 _s) {
+  return (vec3){.x = _v0->x * _s, .y = _v0->y * _s, .z = _v0->z * _s};
+}
+
+static inline f32 vec3_dot(const vec3 *const _v0, const vec3 *const _v1) {
+  return _v0->x * _v1->x + _v0->y * _v1->y + _v0->z * _v1->z;
+}
+
+static inline vec3 vec3_cross(const vec3 *const _v0, const vec3 *const _v1) {
+  return (vec3){.x = _v0->y * _v1->z - _v0->z * _v1->y,
+                .y = _v0->z * _v1->x - _v0->x * _v1->z,
+                .z = _v0->x * _v1->y - _v0->y * _v1->x};
+}
+
+static inline f32 vec3_length(const vec3 *const _v0) {
+  return sqrtf(vec3_dot(_v0, _v0));
+}
+
+static inline f32 vec3_dist(const vec3 *const _v0, const vec3 *const _v1) {
+  const vec3 diff = vec3_sub(_v1, _v0);
+  return vec3_length(&diff);
+}
+
 /*
-TODO: fix fucked up PROC names "...ROC" -> "...PROC"
+TODO: maybe use atan2f(vec3_length(vec3_cross(_v0, _v1)), vec3_dot(_v0, _v1))
 */
+static inline f32
+vec3_angle_between(const vec3 *const _v0, const vec3 *const _v1) {
+#ifdef GAME_DEBUG
+  GAME_ASSERT(vec3_length(_v0) > 0.f);
+  GAME_ASSERT(vec3_length(_v1) > 0.f);
+#endif
+  return acosf(vec3_dot(_v0, _v1) / (vec3_length(_v0) * vec3_length(_v1)));
+}
+
 /*
-ONLY USE IN NON-PERFORMANCE-CRITICAL SCENARIOS FOR CLEANER SYNTAX
+assume the two input vectors are normalized to completely skip the length
+calculation
 */
-typedef vec3          (*VEC3_ADDPROC)(const vec3 *const, const vec3 *const);
-extern VEC3_ADDPROC   vec3_add;
-typedef vec3          (*VEC3_SUBPROC)(const vec3 *const, const vec3 *const);
-extern VEC3_SUBPROC   vec3_sub;
-typedef vec3          (*VEC3_SCALEPROC)(const vec3 *const, const f32);
-extern VEC3_SCALEPROC vec3_scale;
-typedef f32           (*VEC3_DOTPROC)(const vec3 *const, const vec3 *const);
-extern VEC3_DOTPROC   vec3_dot;
-typedef vec3          (*VEC3_CROSSROC)(const vec3 *const, const vec3 *const);
-extern VEC3_CROSSROC  vec3_cross;
-typedef f32           (*VEC3_LENGTHROC)(const vec3 *const);
-extern VEC3_LENGTHROC vec3_length;
-typedef f32           (*VEC3_DISTROC)(const vec3 *const, const vec3 *const);
-extern VEC3_DISTROC   vec3_dist;
-typedef vec3          (*VEC3_NORMROC)(const vec3 *const);
-extern VEC3_NORMROC   vec3_normalize;
-typedef vec3          (*VEC3_NORMROC)(const vec3 *const);
-extern VEC3_NORMROC   vec3_normalize_safe;
-typedef bool (*VEC3_APPROXEQPROC)(const vec3 *const, const vec3 *const, f32);
-extern VEC3_APPROXEQPROC vec3_approx_eq;
-typedef bool             (*VEC3_EQPROC)(const vec3 *const, const vec3 *const);
-extern VEC3_EQPROC       vec3_equal;
-/*
-INPLACE OPERATIONS = BETTER CODEGEN = BETTER PERORMANCE
-*/
-typedef u0               (*VEC3_ADD_IP_PROC)(
-  vec3 *const,
-  const vec3 *const,
-  const vec3 *const
-);
-extern VEC3_ADD_IP_PROC vec3_add_inplace;
-typedef u0              (*VEC3_SUB_IP_PROC)(
-  vec3 *const,
-  const vec3 *const,
-  const vec3 *const
-);
-extern VEC3_SUB_IP_PROC vec3_sub_inplace;
-typedef u0 (*VEC3_SCALE_IP_PROC)(vec3 *const, const vec3 *const, f32);
-extern VEC3_SCALE_IP_PROC vec3_scale_inplace;
-typedef u0                (*VEC3_CROSS_IP_PROC)(
-  vec3 *const,
-  const vec3 *const,
-  const vec3 *const
-);
-extern VEC3_CROSS_IP_PROC vec3_cross_inplace;
-typedef u0                (*VEC3_NORM_IP_PROC)(vec3 *const);
-extern VEC3_NORM_IP_PROC  vec3_normalize_inplace;
+static inline f32
+vec3_angle_between_normalized(const vec3 *const _v0, const vec3 *const _v1) {
+  return acosf(vec3_dot(_v0, _v1));
+}
+
+/* returns (0,0,0) if length is zero */
+static inline vec3 vec3_normalize(const vec3 *const _v0) {
+  f32 len = vec3_length(_v0);
+  if (len > VEC3_NORM_TOLERANCE) {
+    f32 inv = 1.0f / len;
+    return vec3_scale(_v0, inv);
+  }
+  return (vec3){0};
+}
+
+static inline vec3 vec3_normalize_safe(const vec3 *const _v0) {
+  f32 len = vec3_length(_v0);
+  if (len > VEC3_NORM_TOLERANCE) {
+    f32 inv = 1.0f / len;
+    return vec3_scale(_v0, inv);
+  }
+  return (vec3){0};
+}
+
+static inline bool
+vec3_approx_eq(const vec3 *const _v0, const vec3 *const _v1, f32 _tol) {
+  return vec3_dist(_v0, _v1) <= _tol;
+}
+
+static inline bool vec3_equal(const vec3 *const _v0, const vec3 *const _v1) {
+  return vec3_dist(_v0, _v1) <= __FLT_EPSILON__;
+}
+
+static inline u0 vec3_add_inplace(
+  vec3 *const       _res,
+  const vec3 *const _v0,
+  const vec3 *const _v1
+) {
+  *_res =
+    (vec3){.x = _v0->x + _v1->x, .y = _v0->y + _v1->y, .z = _v0->z + _v1->z};
+}
+
+static inline u0 vec3_sub_inplace(
+  vec3 *const       _res,
+  const vec3 *const _v0,
+  const vec3 *const _v1
+) {
+  *_res =
+    (vec3){.x = _v0->x - _v1->x, .y = _v0->y - _v1->y, .z = _v0->z - _v1->z};
+}
+
+static inline u0
+vec3_scale_inplace(vec3 *const _res, const vec3 *const _v0, f32 _s) {
+  *_res = (vec3){.x = _v0->x * _s, .y = _v0->y * _s, .z = _v0->z * _s};
+}
+
+static inline u0 vec3_cross_inplace(
+  vec3 *const       _res,
+  const vec3 *const _v0,
+  const vec3 *const _v1
+) {
+  *_res = (vec3){.x = _v0->y * _v1->z - _v0->z * _v1->y,
+                 .y = _v0->z * _v1->x - _v0->x * _v1->z,
+                 .z = _v0->x * _v1->y - _v0->y * _v1->x};
+}
+
+static inline u0 vec3_normalize_inplace(vec3 *const _v0) {
+  f32 len = vec3_length(_v0);
+  if (len > VEC3_NORM_TOLERANCE) {
+    f32 inv = 1.0f / len;
+    *_v0    = vec3_scale(_v0, inv);
+  }
+  *_v0 = (vec3){0};
+}
+
+#endif
 #endif // MATH_VECTOR_H_

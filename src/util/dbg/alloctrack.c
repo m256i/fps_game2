@@ -70,34 +70,7 @@ u0 *tracked_aligned_malloc(
 #else
   u0 *mem = aligned_alloc(_alignment, _size);
 #endif
-  
-  hashmap_set(
-    alloc_map,
-    &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
-  );
-  pthread_mutex_unlock(&alloc_mutex);
-  return mem;
-}
 
-u0 *tracked_aligned_realloc(
-  u0         *_ptr,
-  usize       _size,
-  usize       _alignment,
-  const char *_function
-) {
-  pthread_mutex_lock(&alloc_mutex);
-  init();
-  hashmap_delete(
-    alloc_map,
-    &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
-  );
-  
-#ifdef _WIN64
-  u0 *mem = _aligned_realloc(_ptr, _size, _alignment);
-#else
-  u0 *mem = aligned_alloc(_alignment, _size);
-  memcpy(mem, _ptr, _size);
-#endif
   hashmap_set(
     alloc_map,
     &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}

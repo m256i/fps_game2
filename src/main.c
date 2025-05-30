@@ -158,10 +158,6 @@ int main(u0) {
   /* wont get printed in release mode */
   GAME_LOGF("engine (ver: " GAME_CLIENT_VER_STR ")  running in debug mode");
 
-  // unit_test_mathlib();
-
-  init_mathlib();
-
   create_gl_context();
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
