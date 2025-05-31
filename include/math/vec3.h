@@ -73,27 +73,35 @@ static inline f32 vec3_length(const vec3 *const _v0) {
   return sqrtf(vec3_dot(_v0, _v0));
 }
 
+static inline f32 vec3_length_sqared(const vec3 *const _v0) {
+  return vec3_dot(_v0, _v0);
+}
+
 static inline f32 vec3_dist(const vec3 *const _v0, const vec3 *const _v1) {
   const vec3 diff = vec3_sub(_v1, _v0);
   return vec3_length(&diff);
 }
 
+static inline f32
+vec3_dist_squared(const vec3 *const _v0, const vec3 *const _v1) {
+  const vec3 diff = vec3_sub(_v1, _v0);
+  return vec3_length_sqared(&diff);
+}
+
+/*
+...yes, gcc 15.0.1+ optimizes basically perfectly on every single machine we
+tested this on
+*/
 static inline vec3 vec3_normalize(const vec3 *const _v) {
-  __m128 dot     = _mm_mul_ps(_v->vec128, _v->vec128);
-  __m128 shuf    = _mm_shuffle_ps(dot, dot, _MM_SHUFFLE(3, 0, 2, 1));
-  __m128 sums    = _mm_add_ps(dot, shuf);
-  shuf           = _mm_movehl_ps(shuf, sums);
-  sums           = _mm_add_ss(sums, shuf);
-  __m128 inv_len = _mm_rsqrt_ss(sums);
-  inv_len        = _mm_shuffle_ps(inv_len, inv_len, 0x00);
-  return (vec3){.vec128 = _mm_mul_ps(_v->vec128, inv_len)};
+  const f32 len = 1.f / sqrtf(_v->x * _v->x + _v->y * _v->y + _v->z * _v->z);
+  return (vec3){.x = _v->x * len, .y = _v->y * len, .z = _v->z * len};
 }
 
 static inline vec3 vec3_normalize_safe(const vec3 *const _v) {
-  f32 len = vec3_length(_v);
-  if (len > VEC3_NORM_TOLERANCE) {
-    f32 inv = 1.0f / len;
-    return vec3_scale(_v, inv);
+  const f32 lensqrd = (_v->x * _v->x + _v->y * _v->y + _v->z * _v->z);
+  if (lensqrd > VEC3_NORM_TOLERANCE) {
+    const f32 len = 1.f / sqrtf(lensqrd);
+    return (vec3){.x = _v->x * len, .y = _v->y * len, .z = _v->z * len};
   }
   return (vec3){0};
 }
@@ -158,14 +166,12 @@ static inline u0 vec3_cross_inplace(
 }
 
 static inline u0 vec3_normalize_inplace(vec3 *const _v0) {
-  __m128 dot     = _mm_mul_ps(_v0->vec128, _v0->vec128);
-  __m128 shuf    = _mm_shuffle_ps(dot, dot, _MM_SHUFFLE(3, 0, 2, 1));
-  __m128 sums    = _mm_add_ps(dot, shuf);
-  shuf           = _mm_movehl_ps(shuf, sums);
-  sums           = _mm_add_ss(sums, shuf);
-  __m128 inv_len = _mm_rsqrt_ss(sums);
-  inv_len        = _mm_shuffle_ps(inv_len, inv_len, 0x00);
-  _v0->vec128    = _mm_mul_ps(_v0->vec128, inv_len);
+  const f32 len =
+    1.f / sqrtf(_v0->x * _v0->x + _v0->y * _v0->y + _v0->z * _v0->z);
+
+  _v0->x *= len;
+  _v0->y *= len;
+  _v0->z *= len;
 }
 
 #else
@@ -226,20 +232,16 @@ vec3_angle_between_normalized(const vec3 *const _v0, const vec3 *const _v1) {
 }
 
 /* returns (0,0,0) if length is zero */
-static inline vec3 vec3_normalize(const vec3 *const _v0) {
-  f32 len = vec3_length(_v0);
-  if (len > VEC3_NORM_TOLERANCE) {
-    f32 inv = 1.0f / len;
-    return vec3_scale(_v0, inv);
-  }
-  return (vec3){0};
+static inline vec3 vec3_normalize(const vec3 *const _v) {
+  const f32 len = 1.f / sqrtf(_v->x * _v->x + _v->y * _v->y + _v->z * _v->z);
+  return (vec3){.x = _v->x * len, .y = _v->y * len, .z = _v->z * len};
 }
 
-static inline vec3 vec3_normalize_safe(const vec3 *const _v0) {
-  f32 len = vec3_length(_v0);
-  if (len > VEC3_NORM_TOLERANCE) {
-    f32 inv = 1.0f / len;
-    return vec3_scale(_v0, inv);
+static inline vec3 vec3_normalize_safe(const vec3 *const _v) {
+  const f32 lensqrd = (_v->x * _v->x + _v->y * _v->y + _v->z * _v->z);
+  if (lensqrd > VEC3_NORM_TOLERANCE) {
+    const f32 len = 1.f / sqrtf(lensqrd);
+    return (vec3){.x = _v->x * len, .y = _v->y * len, .z = _v->z * len};
   }
   return (vec3){0};
 }
@@ -287,12 +289,12 @@ static inline u0 vec3_cross_inplace(
 }
 
 static inline u0 vec3_normalize_inplace(vec3 *const _v0) {
-  f32 len = vec3_length(_v0);
-  if (len > VEC3_NORM_TOLERANCE) {
-    f32 inv = 1.0f / len;
-    *_v0    = vec3_scale(_v0, inv);
-  }
-  *_v0 = (vec3){0};
+  const f32 len =
+    1.f / sqrtf(_v0->x * _v0->x + _v0->y * _v0->y + _v0->z * _v0->z);
+
+  _v0->x *= len;
+  _v0->y *= len;
+  _v0->z *= len;
 }
 
 #endif
