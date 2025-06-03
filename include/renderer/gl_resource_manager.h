@@ -79,18 +79,17 @@ typedef struct {
 } vertex_buffer_creation_info;
 
 typedef struct {
-  GLenum      type;
-  GLuint      size;
-  /* NOT mutable */
-  const char *name;
+  GLenum type;
+  GLuint size;
+  usize  location;
+  char  *name;
 } shader_input_attribute;
 
 typedef struct {
-  GLenum      type;
-  GLuint      size;
-  /* NOT mutable */
-  const char *name;
-  bool        optional;
+  GLenum type;
+  GLuint size;
+  usize  location;
+  char  *name;
 } shader_uniform_attribute;
 
 typedef struct {
@@ -99,8 +98,7 @@ typedef struct {
   /* all NOT mutable */
   char                     *vertex_path;
   char                     *fragment_path;
-  char                     *geo_path;
-  char                     *tesselation_path;
+  /* READ-ONLY (filled by resource manager on creation) */
   shader_input_attribute   *input_attributes;
   usize                     num_inputs;
   shader_uniform_attribute *uniform_attributes;
@@ -152,7 +150,7 @@ typedef struct {
   bool   compress;
   /* NOT mutable */
   char  *image_path;
-  /* readonly (filled by resource manager on creation)*/
+  /* READ-ONLY (filled by resource manager on creation) */
   u32    width;
   u32    height;
   GLenum internal_format;
@@ -198,7 +196,6 @@ typedef struct {
     texture_creation_info       texture;
     image_texture_creation_info image_texture;
     pixel_buffer_creation_info  pixel_buffer;
-    /* TODO: implement all... */
   } desc;
   char         *resource_name;
   /*
@@ -228,6 +225,7 @@ typedef struct {
   str_hash_table table;
   str_hash_table handle_pointers;
   bool           initialized;
+  bool           supports_bindless;
 } gl_resource_manager_class;
 
 /* global instance because gl is also shared state */

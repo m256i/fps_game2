@@ -9,32 +9,13 @@
 #include <math.h>
 #include <math/vec3.h>
 #include <windowing/frame_pacer.h>
+#include <util/abspath.h>
 #include <containers/str_hash_table.h>
 #include <util/dbg/strace.h>
 #include <renderer/gl_resource_manager.h>
 #include <gui/debug_menu.h>
 #include <gui/nuklear.h>
 #include <renderer/gl_api.h>
-
-const char *vertex_shader_src = "#version 460 core\n"
-                                "layout(location = 0) in vec3 aPos;\n"
-                                "layout(location = 1) in vec2 aTexCoords;\n"
-                                "out vec2 oTexCoords;\n"
-                                "uniform float OffsetX;"
-                                "uniform float OffsetY;"
-                                "void main() {\n"
-                                "    oTexCoords = aTexCoords;\n"
-                                "    gl_Position = vec4(aPos.x * 2 + OffsetX, "
-                                "aPos.y * 2 + OffsetY, 0.0, 1.0);\n"
-                                "}\n";
-
-const char *fragment_shader_src = "#version 460 core\n"
-                                  "out vec4 FragColor;\n"
-                                  "in vec2 oTexCoords;"
-                                  "uniform sampler2D tex;"
-                                  "void main() {\n"
-                                  "    FragColor = texture(tex, oTexCoords);\n"
-                                  "}\n";
 
 GLint  offsetX_loc;
 GLint  offsetY_loc;
@@ -43,7 +24,7 @@ GLuint program;
 
 struct nk_context *ctx;
 
-gl_resource_handle rh = {0}, tex_handle = {0};
+gl_resource_handle rh = {0}, tex_handle = {0}, shader_handle = {0};
 
 #define MAX_VERTEX_BUFFER  512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
@@ -51,6 +32,26 @@ gl_resource_handle rh = {0}, tex_handle = {0};
 struct nk_colorf bg;
 
 bool render(u0) {
+
+  GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
+  GL_CALL(
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+  );
+
+  RGFW_point mousepos    = RGFW_getGlobalMousePoint();
+  float      mousepos_x  = (f32)mousepos.x / RGFW_getScreenSize().w;
+  float      mousepos_y  = (f32)mousepos.y / RGFW_getScreenSize().h;
+  mousepos.y            /= RGFW_getScreenSize().h;
+
+  GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
+  GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+  GL_CALL(glUseProgram(program));
+  GL_CALL(glUniform1f(offsetX_loc, mousepos_x * 2.f - 1));
+  GL_CALL(glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f));
+  GL_CALL(glBindTexture(GL_TEXTURE_2D, tex_handle->internal_handle));
+  GL_CALL(glBindVertexArray(rh->internal_handle));
+  GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
+
   nk_glfw3_new_frame();
   if (nk_begin(
         ctx,
@@ -93,11 +94,6 @@ bool render(u0) {
   }
   nk_end(ctx);
 
-  GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
-  GL_CALL(
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
-  );
-
   nk_glfw3_render();
 
   if (rendered_frames % 300 == 0) {
@@ -120,29 +116,29 @@ u32 *make_mandelbrot_image(u0) {
   u32 *img = calloc(sizeof(u32) * WIDTH * HEIGHT, 1);
   if (!img) return NULL;
 
-  // const f64 xmin = -2.0, xmax = 1.0;
-  // const f64 ymin = -1.0, ymax = 1.0;
+  const f64 xmin = -2.0, xmax = 1.0;
+  const f64 ymin = -1.0, ymax = 1.0;
 
-  // for (usize j = 0; j < HEIGHT; ++j) {
-  //   f64 ci = ymin + (ymax - ymin) * j / (HEIGHT - 1);
-  //   for (usize i = 0; i < WIDTH; ++i) {
-  //     f64 cr = xmin + (xmax - xmin) * i / (WIDTH - 1);
-  //     f64 zr = 0.0, zi = 0.0;
-  //     i32 it = 0;
-  //     while (zr * zr + zi * zi <= 4.0 && it < 1000) {
-  //       f64 tmp = zr * zr - zi * zi + cr;
-  //       zi      = 2.0 * zr * zi + ci;
-  //       zr      = tmp;
-  //       ++it;
-  //     }
-  //     if (1000 - it < 10) {
-  //       img[j * WIDTH + i] = 0xff010101;
-  //     } else {
-  //       img[j * WIDTH + i] =
-  //         ((it * 2) | ((u32)sqrt(it * it * it)) << 16) | 0xff000000;
-  //     }
-  //   }
-  // }
+  for (usize j = 0; j < HEIGHT; ++j) {
+    f64 ci = ymin + (ymax - ymin) * j / (HEIGHT - 1);
+    for (usize i = 0; i < WIDTH; ++i) {
+      f64 cr = xmin + (xmax - xmin) * i / (WIDTH - 1);
+      f64 zr = 0.0, zi = 0.0;
+      i32 it = 0;
+      while (zr * zr + zi * zi <= 4.0 && it < 100) {
+        f64 tmp = zr * zr - zi * zi + cr;
+        zi      = 2.0 * zr * zi + ci;
+        zr      = tmp;
+        ++it;
+      }
+      if (1000 - it < 10) {
+        img[j * WIDTH + i] = 0xff010101;
+      } else {
+        img[j * WIDTH + i] =
+          ((it * 2) | ((u32)sqrt(it * it * it)) << 16) | 0xff000000;
+      }
+    }
+  }
   return img;
 }
 
@@ -221,11 +217,28 @@ int main(u0) {
       .compress = false
     }
   };
+
+  char* vp = make_abs_path("../game_data/shaders/test1.vs");
+  char* fp = make_abs_path("../game_data/shaders/test1.fs");
+
+  gl_resource_data rd4 = (gl_resource_data){
+    .resource_name = "myShader1",
+    .desc.shader = {
+      .creation_info_type = RESOURCE_CREATION_INFO_TYPE_SHADER,
+      .vertex_path    = vp,
+      .fragment_path  = fp,
+    }
+  };
+
   // clang-format on
 
   request_gl_resource(&rd, &rh);
   // request_gl_resource(&rd2, &tex_handle);
   request_gl_resource(&rd3, &tex_handle);
+  request_gl_resource(&rd4, &shader_handle);
+
+  TRACKED_FREE(vp);
+  TRACKED_FREE(fp);
 
   free(testImageData);
 
@@ -248,18 +261,16 @@ int main(u0) {
     nk_glfw3_font_stash_end();
   }
 
-  GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-  glShaderSource(vs, 1, &vertex_shader_src, NULL);
-  glCompileShader(vs);
-  GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-  glShaderSource(fs, 1, &fragment_shader_src, NULL);
-  glCompileShader(fs);
-  program = glCreateProgram();
-  glAttachShader(program, vs);
-  glAttachShader(program, fs);
-  glLinkProgram(program);
-  glDeleteShader(vs);
-  glDeleteShader(fs);
+  program = shader_handle->internal_handle;
+
+  printf("program %u\n", program);
+  assert(rd3.impl_storage);
+
+  GL_CALL(glProgramUniformHandleui64ARB(
+    program,
+    glGetUniformLocation(program, "tex"),
+    *(GLuint64 *)rd3.impl_storage
+  ));
 
   offsetX_loc = glGetUniformLocation(program, "OffsetX");
   offsetY_loc = glGetUniformLocation(program, "OffsetY");
@@ -272,8 +283,7 @@ int main(u0) {
 
   destroy_gl_resource(&rd, &rh);
   destroy_gl_resource(&rd3, &tex_handle);
-
-  glDeleteProgram(program);
+  destroy_gl_resource(&rd4, &shader_handle);
 
   destroy_global_window();
   fclose(lf);

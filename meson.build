@@ -22,9 +22,7 @@ if DEBUGMODE == true
     '-static-libstdc++',
     '-Og',
     '-march=native',
-    '-mtune=native',
     '-fomit-frame-pointer',
-    '-ffast-math',
     '-DGAME_DEBUG'
   ]
   if host_machine.kernel() == 'nt'
