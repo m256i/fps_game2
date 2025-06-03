@@ -46,8 +46,12 @@ const char *event_id_to_name(unsigned id) {
   }
 }
 
-ULONG WINAPI BufferCallback(EVENT_TRACE_LOGFILEW *__attribute__((unused)
-) _unused) {
+/*
+TODO: actually implement...
+*/
+
+ULONG WINAPI
+BufferCallback(EVENT_TRACE_LOGFILEW *__attribute__((unused)) _unused) {
   return TRUE;
 }
 

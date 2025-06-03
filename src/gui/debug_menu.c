@@ -26,6 +26,10 @@
 #define NK_GLFW_DOUBLE_CLICK_HI 0.2
 #endif
 
+/*
+TODO: implement nice retained mode debug menu stuff with named parameters
+*/
+
 struct nk_glfw_vertex {
   float   position[2];
   float   uv[2];
