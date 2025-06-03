@@ -241,4 +241,14 @@ u0 destroy_gl_resource(
   gl_resource_handle     *_handle
 );
 
+/*
+TODO:
+we need functions for using the gl_resources we created
+such as:
+RM_get_texture_id()
+RM_get_texture_bindless_handle()
+RM_get_shader_program()
+...
+*/
+
 #endif // RENDERER_GL_RESOURCE_MANAGER_H_

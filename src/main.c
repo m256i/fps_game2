@@ -155,7 +155,7 @@ int main(u0) {
   GAME_LOGF("engine (ver: " GAME_CLIENT_VER_STR ")  running in debug mode");
 
   create_gl_context();
-  create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
+  create_global_window("game client", 0, 0, RENDER_MODE_VSYNC);
 
   float vertices[] = {
     0.5f,  0.5f,  0.0f, 1.0f, 1.0f, 0.5f,  -0.5f, 0.0f, 1.0f, 0.0f,
