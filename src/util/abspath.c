@@ -13,6 +13,10 @@
    (p)[1] == ':' && ((p)[2] == '\\' || (p)[2] == '/')                          \
   )
 #else
+#define _POSIX_C_SOURCE 200112L
+#define __USE_XOPEN_EXTENDED /* idfk why this is needed */
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
 #define SEP_CHAR       '/'
@@ -44,8 +48,8 @@ char *get_executable_dir(void) {
   const usize path_max = MAX_PATH;
   char        buffer[MAX_PATH];
 #else
-  const usize path_max = PATH_MAX;
-  char        buffer[PATH_MAX];
+  const usize path_max = 260;
+  char        buffer[260];
 #endif
 
   if (!get_executable_path(buffer, sizeof(buffer))) return NULL;
@@ -63,7 +67,7 @@ char *make_abs_path(const char *relpath) {
 #if defined(_WIN32)
     return strnclone_s((char *)relpath, MAX_PATH);
 #else
-    return strnclone_s((char *)relpath, PATH_MAX);
+    return strnclone_s((char *)relpath, 260);
 #endif
   }
 

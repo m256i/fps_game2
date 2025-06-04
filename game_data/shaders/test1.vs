@@ -1,5 +1,5 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : enable
+// #extension GL_ARB_bindless_texture : enable
 // clang-format off
 
 layout(location = 0) in vec3 aPos;

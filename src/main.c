@@ -262,15 +262,13 @@ int main(u0) {
   }
 
   program = shader_handle->internal_handle;
-
   printf("program %u\n", program);
-  assert(rd3.impl_storage);
 
-  GL_CALL(glProgramUniformHandleui64ARB(
-    program,
-    glGetUniformLocation(program, "tex"),
-    *(GLuint64 *)rd3.impl_storage
-  ));
+  // GL_CALL(glProgramUniformHandleui64ARB(
+  //   program,
+  //   glGetUniformLocation(program, "tex"),
+  //   *(GLuint64 *)rd3.impl_storage
+  // ));
 
   offsetX_loc = glGetUniformLocation(program, "OffsetX");
   offsetY_loc = glGetUniformLocation(program, "OffsetY");

@@ -1,9 +1,9 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : enable
-#extension GL_ARB_gpu_shader_fp64 : enable
+// #extension GL_ARB_bindless_texture : enable
+// #extension GL_ARB_gpu_shader_fp64 : enable
 // clang-format off
 
-layout(bindless_sampler) uniform sampler2D tex;
+uniform sampler2D tex;
 precision highp float;
 
 in vec2 u_mousePos;
