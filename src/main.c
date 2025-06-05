@@ -48,8 +48,7 @@ bool render(u0) {
   GL_CALL(glUseProgram(program));
   GL_CALL(glUniform1f(offsetX_loc, mousepos_x * 2.f - 1));
   GL_CALL(glUniform1f(offsetY_loc, 1.f - mousepos_y * 2.f));
-  GL_CALL(glBindTexture(GL_TEXTURE_2D, tex_handle->internal_handle));
-  GL_CALL(glBindVertexArray(rh->internal_handle));
+  GL_CALL(glBindVertexArray(rh->internal_storage.vbo.vao_handle));
   GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL));
 
   nk_glfw3_new_frame();
@@ -162,9 +161,8 @@ int main(u0) {
     -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -0.5f, 0.5f,  0.0f, 0.0f, 1.0f,
   };
 
-  unsigned int indices[] = {0, 1, 3, 1, 2, 3};
-
-  u32 *testImageData = make_mandelbrot_image();
+  unsigned int indices[]     = {0, 1, 3, 1, 2, 3};
+  u32         *testImageData = make_mandelbrot_image();
 
   // clang-format off
   gl_resource_data rd = (gl_resource_data){
@@ -233,12 +231,20 @@ int main(u0) {
   // clang-format on
 
   request_gl_resource(&rd, &rh);
+
   // request_gl_resource(&rd2, &tex_handle);
   request_gl_resource(&rd3, &tex_handle);
   request_gl_resource(&rd4, &shader_handle);
 
   TRACKED_FREE(vp);
   TRACKED_FREE(fp);
+
+  /*
+  TODO:
+    -- implement resource handle shit
+    -- make internal functions have internal linkage
+    -- add namespace prefixes to functions
+  */
 
   free(testImageData);
 
@@ -261,7 +267,7 @@ int main(u0) {
     nk_glfw3_font_stash_end();
   }
 
-  program = shader_handle->internal_handle;
+  program = (GLuint)shader_handle->internal_storage.shader;
   printf("program %u\n", program);
 
   // GL_CALL(glProgramUniformHandleui64ARB(

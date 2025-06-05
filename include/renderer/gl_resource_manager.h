@@ -203,7 +203,6 @@ typedef struct {
   return TRUE from the callback to signal deletion
   */
   POSTPONE_PROC postpone_callback;
-  u0           *impl_storage;
 } gl_resource_data;
 
 /*
@@ -211,14 +210,35 @@ TODO: implement postpone_deletion callback
 */
 
 typedef struct {
-  GLuint internal_handle;
-  u32    hashed_resource_index;
+  union {
+    GLuint fbo;
+    GLuint rbo;
+    GLuint shader;
+    GLuint ssbo;
+    GLuint ubo;
+
+    struct {
+      GLuint vbo_handle;
+      GLuint vao_handle;
+      GLuint ebo_handle;
+    } vbo;
+    struct {
+      GLuint handle;
+      GLuint bindless_handle;
+    } texture;
+    GLuint pbo;
+  };
+} gl_handle_internal_storage;
+
+typedef struct {
+  gl_handle_internal_storage internal_storage;
+  u32                        hashed_resource_index;
 } *gl_resource_handle, gl_resource_handle_data;
 
 typedef struct {
-  gl_resource_data resource_data;
-  GLuint           internal_handle;
-  i32              ref_count;
+  gl_resource_data           resource_data;
+  gl_handle_internal_storage internal_handle;
+  i32                        ref_count;
 } resource_table_slot;
 
 typedef struct {
@@ -245,9 +265,7 @@ u0 destroy_gl_resource(
 TODO:
 we need functions for using the gl_resources we created
 such as:
-RM_get_texture_id()
-RM_get_texture_bindless_handle()
-RM_get_shader_program()
+
 ...
 */
 

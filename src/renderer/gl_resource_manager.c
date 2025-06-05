@@ -23,7 +23,6 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
     strnclone_s(_temp->resource_name, MAX_RESOURCE_NAME_STRLEN);
 
   /* important, only shallow copy since our handle handles memory */
-  out.impl_storage = _temp->impl_storage;
   GAME_LOGF("copied name: %s", out.resource_name);
 
   switch (_temp->desc.dummy.creation_info_type) {
@@ -335,17 +334,18 @@ bool resource_data_eq(
   return same_info_type && same_name && same_desc;
 }
 
-GLuint create_gl_fbo(u0) {
+static gl_handle_internal_storage create_gl_fbo(u0) {
   GLuint handle = 0;
   GL_CALL(glGenFramebuffers(1, &handle));
-  return handle;
+  return (gl_handle_internal_storage){.fbo = handle};
 }
 
 u0 destroy_gl_fbo(gl_resource_handle _handle) {
-  GL_CALL(glDeleteFramebuffers(1, &_handle->internal_handle));
+  GL_CALL(glDeleteFramebuffers(1, &_handle->internal_storage.fbo));
 }
 
-GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_vbo(gl_resource_data *const _resource_data) {
   GLuint vao, vbo, ebo;
   GL_CALL(glCreateVertexArrays(1, &vao));
   GL_CALL(glBindVertexArray(vao));
@@ -372,16 +372,6 @@ GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
     vc->index_data,
     vc->buffer_usage
   ));
-
-  struct vbo_ebo_pair {
-    GLuint vbo;
-    GLuint ebo;
-  };
-
-  /* the user doesnt need the vbo, ebo handles after creation*/
-  _resource_data->impl_storage = TRACKED_MALLOC(sizeof(struct vbo_ebo_pair));
-  ((struct vbo_ebo_pair *)_resource_data->impl_storage)->vbo = vbo;
-  ((struct vbo_ebo_pair *)_resource_data->impl_storage)->ebo = ebo;
 
   GLint  offset = 0;
   GLuint stride = 0;
@@ -425,31 +415,26 @@ GLuint create_gl_vbo(gl_resource_data *const _resource_data) {
   GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
 
   GAME_LOGF(" create vbo: stride was: %lu", stride);
-  return vao;
+
+  /* struct {
+    GLuint vbo_handle;
+    GLuint vao_handle;
+    GLuint ebo_handle;
+  } */
+  return (gl_handle_internal_storage){.vbo = {vbo, vao, ebo}};
 }
 
 u0 destroy_gl_vbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
-  GLuint vao = _handle->internal_handle;
-
-  struct vbo_ebo_pair {
-    GLuint vbo;
-    GLuint ebo;
-  };
-
-  GLuint vbo = ((struct vbo_ebo_pair *)_resource_data->impl_storage)->vbo;
-  GLuint ebo = ((struct vbo_ebo_pair *)_resource_data->impl_storage)->ebo;
-
-  GL_CALL(glDeleteBuffers(1, &ebo));
-  GL_CALL(glDeleteVertexArrays(1, &vao));
-  GL_CALL(glDeleteBuffers(1, &vbo));
-
-  TRACKED_FREE(_resource_data->impl_storage);
+  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.vbo.ebo_handle));
+  GL_CALL(glDeleteVertexArrays(1, &_handle->internal_storage.vbo.vao_handle));
+  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.vbo.vbo_handle));
 }
 
-GLuint create_gl_rbo(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_rbo(gl_resource_data *const _resource_data) {
   GLuint handle = 0;
   GL_CALL(glGenRenderbuffers(1, &handle));
   GL_CALL(glBindRenderbuffer(GL_RENDERBUFFER, handle));
@@ -487,17 +472,18 @@ GLuint create_gl_rbo(gl_resource_data *const _resource_data) {
       _resource_data->desc.render_buffer.height
     ));
   }
-  return handle;
+  return (gl_handle_internal_storage){.rbo = handle};
 }
 
 u0 destroy_gl_rbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
-  GL_CALL(glDeleteRenderbuffers(1, &_handle->internal_handle));
+  GL_CALL(glDeleteRenderbuffers(1, &_handle->internal_storage.rbo));
 }
 
-GLuint create_gl_pbo(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_pbo(gl_resource_data *const _resource_data) {
   GLuint handle = 0;
   GL_CALL(glGenBuffers(1, &handle));
 
@@ -526,17 +512,18 @@ GLuint create_gl_pbo(gl_resource_data *const _resource_data) {
     _resource_data->desc.pixel_buffer.data,
     _resource_data->desc.pixel_buffer.usage
   ));
-  return handle;
+  return (gl_handle_internal_storage){.pbo = handle};
 }
 
 u0 destroy_gl_pbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
-  GL_CALL(glDeleteBuffers(1, &_handle->internal_handle));
+  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.pbo));
 }
 
-GLuint create_gl_image_texture(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_image_texture(gl_resource_data *const _resource_data) {
   image_texture_creation_info *const it = &_resource_data->desc.image_texture;
 
   GAME_ASSERT(
@@ -565,22 +552,23 @@ GLuint create_gl_image_texture(gl_resource_data *const _resource_data) {
     it->internal_format,
     it->format
   );
-  return lt.handle;
+
+  if (gl_resource_manager.supports_bindless) {
+    GLuint64 h0 = glGetTextureHandleARB(lt.handle);
+    GL_CALL(glMakeTextureHandleResidentARB(h0));
+    return (gl_handle_internal_storage){.texture = {
+                                          lt.handle,
+                                          h0,
+                                        }};
+  }
+  return (gl_handle_internal_storage){.texture = {
+                                        lt.handle,
+                                        0,
+                                      }};
 }
 
-GLuint create_gl_shader(gl_resource_data *const _resource_data) {
-  const GLuint handle = load_shader_from_path(&_resource_data->desc.shader);
-  return handle;
-}
-
-u0 destroy_gl_shader(
-  gl_resource_data *const _resource_data,
-  gl_resource_handle      _handle
-) {
-  GL_CALL(glDeleteProgram(_handle->internal_handle));
-}
-
-GLuint create_gl_texture(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_texture(gl_resource_data *const _resource_data) {
   texture_creation_info *const ti     = &_resource_data->desc.texture;
   GLuint                       handle = 0;
 
@@ -669,11 +657,15 @@ done:
   if (gl_resource_manager.supports_bindless) {
     GLuint64 h0 = glGetTextureHandleARB(handle);
     GL_CALL(glMakeTextureHandleResidentARB(h0));
-
-    _resource_data->impl_storage = TRACKED_MALLOC(sizeof(GLuint64));
-    *(GLuint64 *)_resource_data->impl_storage = h0;
+    return (gl_handle_internal_storage){.texture = {
+                                          handle,
+                                          h0,
+                                        }};
   }
-  return handle;
+  return (gl_handle_internal_storage){.texture = {
+                                        handle,
+                                        0,
+                                      }};
 }
 
 u0 destroy_gl_texture(
@@ -682,17 +674,27 @@ u0 destroy_gl_texture(
 ) {
   if (gl_resource_manager.supports_bindless) {
     GL_CALL(glMakeTextureHandleNonResidentARB(
-      *(GLuint64 *)_resource_data->impl_storage
+      _handle->internal_storage.texture.bindless_handle
     ));
   }
-
-  TRACKED_FREE(_resource_data->impl_storage);
-  _resource_data->impl_storage = NULL;
-
-  GL_CALL(glDeleteTextures(1, &_handle->internal_handle));
+  GL_CALL(glDeleteTextures(1, &_handle->internal_storage.texture.handle));
 }
 
-GLuint create_gl_ssbo(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_shader(gl_resource_data *const _resource_data) {
+  const GLuint handle = load_shader_from_path(&_resource_data->desc.shader);
+  return (gl_handle_internal_storage){.shader = handle};
+}
+
+u0 destroy_gl_shader(
+  gl_resource_data *const _resource_data,
+  gl_resource_handle      _handle
+) {
+  GL_CALL(glDeleteProgram(_handle->internal_storage.shader));
+}
+
+static gl_handle_internal_storage
+create_gl_ssbo(gl_resource_data *const _resource_data) {
   GLuint ssbo;
   GL_CALL(glGenBuffers(1, &ssbo));
   GL_CALL(glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo));
@@ -716,17 +718,19 @@ GLuint create_gl_ssbo(gl_resource_data *const _resource_data) {
     _resource_data->desc.ssbo.data,
     _resource_data->desc.ssbo.usage
   ));
-  return ssbo;
+
+  return (gl_handle_internal_storage){.ssbo = ssbo};
 }
 
 u0 destroy_gl_ssbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
-  GL_CALL(glDeleteBuffers(1, &_handle->internal_handle));
+  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.ssbo));
 }
 
-GLuint create_gl_ubo(gl_resource_data *const _resource_data) {
+static gl_handle_internal_storage
+create_gl_ubo(gl_resource_data *const _resource_data) {
   GLuint ubo;
   GL_CALL(glGenBuffers(1, &ubo));
   GL_CALL(glBindBuffer(GL_UNIFORM_BUFFER, ubo));
@@ -750,17 +754,18 @@ GLuint create_gl_ubo(gl_resource_data *const _resource_data) {
     _resource_data->desc.ubo.data,
     _resource_data->desc.ubo.usage
   ));
-  return ubo;
+  return (gl_handle_internal_storage){.ubo = ubo};
 }
 
 u0 destroy_gl_ubo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
-  GL_CALL(glDeleteBuffers(1, &_handle->internal_handle));
+  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.ubo));
 }
 
-GLuint impl_create_gl_resource(gl_resource_data *const resource_data) {
+static gl_handle_internal_storage
+impl_create_gl_resource(gl_resource_data *const resource_data) {
   switch (resource_data->desc.dummy.creation_info_type) {
   case RESOURCE_CREATION_INFO_TYPE_FRAME_BUFFER: {
     GAME_LOGF("creating FBO");
@@ -805,7 +810,7 @@ GLuint impl_create_gl_resource(gl_resource_data *const resource_data) {
     break;
   }
   }
-  return (GLuint)-1;
+  return (gl_handle_internal_storage){0};
 }
 
 u0 impl_destroy_gl_resource(
@@ -941,7 +946,7 @@ u0 request_gl_resource(
     GAME_LOGF(
       "handle: index %u internal handle: %u",
       (*_handle)->hashed_resource_index,
-      (*_handle)->internal_handle
+      (*_handle)->internal_storage.fbo
     );
 
     /* handle already exists so just set it */
@@ -953,7 +958,8 @@ u0 request_gl_resource(
   }
 
   GAME_LOGF("creating new gl object");
-  const GLuint gl_handle = impl_create_gl_resource(resource_data);
+  const gl_handle_internal_storage gl_handle =
+    impl_create_gl_resource(resource_data);
 
   /* make sure handle pointer table was properly cleared before */
   GAME_ASSERT(
@@ -982,7 +988,7 @@ u0 request_gl_resource(
     "inserted resource table slot: %p",
     str_hash_table_at(table, resource_data->resource_name)
   );
-  (*_handle)->internal_handle = gl_handle;
+  (*_handle)->internal_storage = gl_handle;
 }
 
 u0 destroy_gl_resource(
