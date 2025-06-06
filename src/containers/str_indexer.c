@@ -3,13 +3,7 @@
 
 #include <containers/str_indexer.h>
 #include <util/fnv1a32.h>
-
-char *portable_strdup(const char *s) {
-  size_t len  = strlen(s) + 1;
-  char  *copy = malloc(len);
-  if (!copy) return NULL;
-  return memcpy(copy, s, len);
-}
+#include <util/array_copy.h>
 
 /* grow table to new_capacity, re-inserting all live entries */
 u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
@@ -36,7 +30,7 @@ u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
 }
 
 /* find slot for hash+key (either existing or first free/tombstone) */
-usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
+static usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
   GAME_ASSERT(t->bucket_count > 0);
   usize idx = (usize)(hash % t->bucket_count);
   for (usize probes = 0; probes < t->bucket_count; probes++) {
@@ -96,7 +90,7 @@ u32 str_indexer_get_hash(str_indexer *_map, const char *_key) {
     /* fresh insert */
     if (slot->deleted) slot->deleted = false;
     slot->hash = hash;
-    slot->key  = portable_strdup(_key);
+    slot->key  = strnclone_s((char *)_key, 256);
     if (!slot->key) {
       GAME_CRITICALF("OOM");
       exit(1);

@@ -3,7 +3,7 @@
 #include <renderer/gl_api.h>
 #include <renderer/gl_resource_manager.h>
 
-GLuint compile_shader_from_source(
+static GLuint compile_shader_from_source(
   const char *src,
   GLenum      shader_type,
   const char *path
@@ -29,7 +29,7 @@ GLuint compile_shader_from_source(
   return shader;
 }
 
-GLuint link_program(const GLuint *shaders, usize shader_count) {
+static GLuint link_program(const GLuint *shaders, usize shader_count) {
   GLuint prog = glCreateProgram();
   for (usize i = 0; i != shader_count; ++i) {
     GL_CALL(glAttachShader(prog, shaders[i]));

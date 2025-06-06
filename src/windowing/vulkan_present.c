@@ -24,7 +24,7 @@
 #endif
 
 // clang-format off
-VkSemaphore create_exportable_semaphore(VkDevice _device) {
+static VkSemaphore create_exportable_semaphore(VkDevice _device) {
   VkSemaphoreCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, 
     .pNext = &(VkSemaphoreTypeCreateInfo){
@@ -42,7 +42,7 @@ VkSemaphore create_exportable_semaphore(VkDevice _device) {
   return semaphore;
 }
 
-VkSemaphore create_intenal_semaphore(VkDevice _device) {
+static VkSemaphore create_intenal_semaphore(VkDevice _device) {
   VkSemaphoreCreateInfo info = {
     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, 
     .pNext = &(VkSemaphoreTypeCreateInfo){
@@ -56,7 +56,7 @@ VkSemaphore create_intenal_semaphore(VkDevice _device) {
   return semaphore;
 }
 
-u0 initialize_ringbuffer_sync(vk_context *ctx) {
+static u0 initialize_ringbuffer_sync(vk_context *ctx) {
   ctx->swapchain.current_index = 0;
   ctx->swapchain.vk_wait_semaphores     = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
   ctx->swapchain.vk_signal_semaphores   = TRACKED_MALLOC(sizeof(VkSemaphore) * ctx->swapchain.count_fbos);
@@ -124,7 +124,7 @@ u0 initialize_ringbuffer_sync(vk_context *ctx) {
   }
 }
 
-VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface, VkPresentModeKHR  _prefered_mode) {
+static VkPresentModeKHR get_viable_present_mode(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface, VkPresentModeKHR  _prefered_mode) {
   u32 present_mode_count;
   vkGetPhysicalDeviceSurfacePresentModesKHR(*_phys_dev, *_surface, &present_mode_count, NULL);
   if (!present_mode_count) {
@@ -157,7 +157,7 @@ u32 find_mem_type(u32 typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDe
   exit(1);
 }
 
-VkSurfaceFormatKHR get_viable_surface_format(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface) {
+static VkSurfaceFormatKHR get_viable_surface_format(VkPhysicalDevice *_phys_dev, VkSurfaceKHR *_surface) {
   u32 format_count;
   vkGetPhysicalDeviceSurfaceFormatsKHR(*_phys_dev, *_surface, &format_count, NULL);
   if (!format_count) {
@@ -551,6 +551,7 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
   GAME_LOGF("successfully initialized vulkan surface");
 }
 
+/* TODO: stupid global variable */
 static u32 image_index = 0;
 
 usize bind_vulkan_surface(vk_context *ctx) {

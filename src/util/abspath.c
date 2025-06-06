@@ -13,7 +13,7 @@
    (p)[1] == ':' && ((p)[2] == '\\' || (p)[2] == '/')                          \
   )
 #else
-#define _POSIX_C_SOURCE 200112L
+#define _POSIX_C_SOURCE      200112L
 #define __USE_XOPEN_EXTENDED /* idfk why this is needed */
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +23,7 @@
 #define IS_ABS_PATH(p) ((p)[0] == '/')
 #endif
 
-i32 get_executable_path(char *out, usize out_sz) {
+static i32 get_executable_path(char *out, usize out_sz) {
 #if defined(_WIN32)
   DWORD len = GetModuleFileNameA(NULL, out, (DWORD)out_sz);
   if (len == 0 || (usize)len >= out_sz) {
@@ -43,7 +43,7 @@ i32 get_executable_path(char *out, usize out_sz) {
 #endif
 }
 
-char *get_executable_dir(void) {
+static char *get_executable_dir(void) {
 #if defined(_WIN32)
   const usize path_max = MAX_PATH;
   char        buffer[MAX_PATH];

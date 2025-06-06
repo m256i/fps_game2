@@ -2,9 +2,9 @@
 
 #ifdef _WIN64
 #define _CRT_SECURE_NO_WARNINGS
-#include  <windows.h>
+#include <windows.h>
 #include <dbghelp.h>
-#else 
+#else
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,16 +32,17 @@ typedef struct {
 } hashmap;
 
 /* small hmap implementation that isnt tracked to prevent infinite recursion */
-__attribute__((no_strace)) u0    hm_init(hashmap *hm, size_t capacity);
-__attribute__((no_strace)) u0    hm_resize(hashmap *hm);
-__attribute__((no_strace)) char *hm_at(hashmap *hm, uint64_t key);
-__attribute__((no_strace)) u0 hm_insert(hashmap *hm, uint64_t key, char *value);
+__attribute__((no_strace)) static u0    hm_init(hashmap *hm, size_t capacity);
+__attribute__((no_strace)) static u0    hm_resize(hashmap *hm);
+__attribute__((no_strace)) static char *hm_at(hashmap *hm, uint64_t key);
+__attribute__((no_strace)) static u0
+hm_insert(hashmap *hm, uint64_t key, char *value);
 
 static hashmap         function_lookup = {0};
 static _Atomic bool    initialized     = false;
 static pthread_mutex_t funcs_lock      = PTHREAD_MUTEX_INITIALIZER;
 
-__attribute__((no_strace)) LONG WINAPI
+__attribute__((no_strace)) static LONG WINAPI
 unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo);
 
 __attribute__((no_strace)) u0 setup_stacktrace(u0) {
@@ -50,11 +51,11 @@ __attribute__((no_strace)) u0 setup_stacktrace(u0) {
 #else
 
 u0 signal_handler(i32 sig) {
-    u0 *buffer[64];
-    i32 nptrs = backtrace(buffer, 64);
-    fprintf(stderr, "=== Stack trace (most recent call) === error: %d\n", sig);
-    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
-    exit(1);
+  u0 *buffer[64];
+  i32 nptrs = backtrace(buffer, 64);
+  fprintf(stderr, "=== Stack trace (most recent call) === error: %d\n", sig);
+  backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+  exit(1);
 }
 
 u0 setup_stacktrace(u0) {
@@ -87,7 +88,7 @@ void __instrument_strace(void *_addr, char *_funcname) {
 
 #define MAX_FRAMES 64
 
-__attribute__((no_strace)) LONG WINAPI
+__attribute__((no_strace)) static LONG WINAPI
 unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
   if (!atomic_load(&initialized)) {
     hm_init(&function_lookup, 16);
@@ -183,7 +184,7 @@ unhandled_exception_handerl(EXCEPTION_POINTERS *ExceptionInfo) {
 #define LOAD_FACTOR_NUM 3
 #define LOAD_FACTOR_DEN 4
 
-__attribute__((no_strace)) u0 hm_init(hashmap *hm, size_t capacity) {
+__attribute__((no_strace)) static u0 hm_init(hashmap *hm, size_t capacity) {
   if (!hm || (capacity & (capacity - 1)) != 0) {
     puts("hm_init error");
     exit(1);
@@ -194,7 +195,7 @@ __attribute__((no_strace)) u0 hm_init(hashmap *hm, size_t capacity) {
   hm->entries  = calloc(capacity, sizeof(hm_entry));
 }
 
-__attribute__((no_strace)) u0 hm_resize(hashmap *hm) {
+__attribute__((no_strace)) static u0 hm_resize(hashmap *hm) {
   usize     new_capacity = hm->capacity << 1;
   usize     new_mask     = new_capacity - 1;
   hm_entry *new_entries  = calloc(new_capacity, sizeof(hm_entry));
@@ -221,7 +222,8 @@ __attribute__((no_strace)) u0 hm_resize(hashmap *hm) {
   hm->mask     = new_mask;
 }
 
-__attribute__((no_strace)) u0 hm_insert(hashmap *hm, usize key, char *value) {
+__attribute__((no_strace)) static u0
+hm_insert(hashmap *hm, usize key, char *value) {
   if (!hm || !hm->entries) {
     puts("strace hmap not initialized");
     exit(1);
@@ -249,7 +251,7 @@ __attribute__((no_strace)) u0 hm_insert(hashmap *hm, usize key, char *value) {
   }
 }
 
-__attribute__((no_strace)) char *hm_at(hashmap *hm, uptr key) {
+__attribute__((no_strace)) static char *hm_at(hashmap *hm, uptr key) {
   if (!hm || !hm->entries) return NULL;
   usize idx = (usize)key & hm->mask;
   for (;;) {

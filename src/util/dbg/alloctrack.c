@@ -22,13 +22,13 @@ static u64 user_hash(const u0 *item, u64 seed0, u64 seed1) {
   return hashmap_sip(&user->address, sizeof(uptr), seed0, seed1);
 }
 
-int user_compare(const u0 *a, const u0 *b, u0 *udata) {
+static int user_compare(const u0 *a, const u0 *b, u0 *udata) {
   const alloc_block *ua = a;
   const alloc_block *ub = b;
   return ua->address != ub->address;
 }
 
-u0 init(u0) {
+static u0 init(u0) {
   if (!initialized) {
     alloc_map = hashmap_new(
       sizeof(alloc_block),

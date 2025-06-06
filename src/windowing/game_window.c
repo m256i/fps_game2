@@ -68,7 +68,7 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
 #endif
       GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
       RGFW_window_setFullscreen(win, RGFW_TRUE);
-      
+
 #ifdef _WIN64
       exclusive_fullscreen_hint(
         win->src.window,
@@ -108,7 +108,7 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
   }
 }
 
-u0 APIENTRY debug_callback(
+static u0 APIENTRY debug_callback(
   GLenum        source,
   GLenum        type,
   GLuint        id,
@@ -177,17 +177,19 @@ u0 create_global_window(
   GAME_LOGF("using screen space: (%d, %d)", _w, _h);
   RGFW_rect winsize = RGFW_RECT(0, 0, _w, _h);
 
-  global_window->window_name = _name;
+  global_window->window_name   = _name;
   global_window->screen_width  = _w;
   global_window->screen_height = _h;
-  global_window->in_focus    = true;
-  global_window->render_mode = _render_mode;
-  
+  global_window->in_focus      = true;
+  global_window->render_mode   = _render_mode;
+
 #ifdef _WIN64
   if (_render_mode == RENDER_MODE_FRAME_PACE_EXP ||
       _render_mode == RENDER_MODE_FRAME_PACE_EXP) {
-    GAME_CRITICALF("using either RENDER_MODE_FRAME_PACE_EXP or "
-                   "RENDER_MODE_FRAME_PACE_EXP remember to turn off G-Sync");
+    GAME_CRITICALF(
+      "using either RENDER_MODE_FRAME_PACE_EXP or "
+      "RENDER_MODE_FRAME_PACE_EXP remember to turn off G-Sync"
+    );
   }
 
   memset(&global_window->fpc, 0, sizeof global_window->fpc);
@@ -217,8 +219,8 @@ u0 create_global_window(
     _name,
     winsize,
     RGFW_windowFullscreen | RGFW_windowNoResize | RGFW_windowCenterCursor
-  #ifdef _WIN64  
-    | RGFW_windowNoInitAPI
+#ifdef _WIN64
+      | RGFW_windowNoInitAPI
 #endif
   );
 
@@ -256,7 +258,7 @@ u0 create_global_window(
   global_window->internal_window = win;
 }
 
-RGFW_window* get_global_internal_window(u0) {
+RGFW_window *get_global_internal_window(u0) {
   return global_window->internal_window;
 }
 
@@ -324,8 +326,8 @@ static u0 window_check_events(u0) {
 
 u0 window_run_render_proc(u0) {
 #ifdef _WIN64
-    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+  SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 #endif
   window_check_events();
   if (!global_window->in_focus) {
@@ -366,7 +368,7 @@ u0 window_run_render_proc(u0) {
     vulkan_present(&global_window->vk_ctx);
     break;
   }
-}
+  }
 #else
   global_window->render_proc();
   RGFW_window_swapBuffers_OpenGL(global_window->internal_window);

@@ -9,7 +9,7 @@ gl_resource_manager_class gl_resource_manager = {0};
 
 /* deep copy function for gl_resource_data since clients might pass in temporary
  * structs and arrays */
-gl_resource_data
+static gl_resource_data
 create_persistent_resource_data(const gl_resource_data *const _temp) {
   gl_resource_data out = {0};
   GAME_LOGF(
@@ -101,7 +101,7 @@ create_persistent_resource_data(const gl_resource_data *const _temp) {
   return out;
 }
 
-u0 destroy_persistent_resource_data(gl_resource_data *_data) {
+static u0 destroy_persistent_resource_data(gl_resource_data *_data) {
   if (_data->resource_name) {
     GAME_LOGF(
       "freeing resource: %s type %d",
@@ -173,7 +173,7 @@ u0 destroy_persistent_resource_data(gl_resource_data *_data) {
 }
 
 /* cancer */
-bool resource_data_eq(
+static bool resource_data_eq(
   const gl_resource_data *const _r0,
   const gl_resource_data *const _r1
 ) {
@@ -340,7 +340,7 @@ static gl_handle_internal_storage create_gl_fbo(u0) {
   return (gl_handle_internal_storage){.fbo = handle};
 }
 
-u0 destroy_gl_fbo(gl_resource_handle _handle) {
+static u0 destroy_gl_fbo(gl_resource_handle _handle) {
   GL_CALL(glDeleteFramebuffers(1, &_handle->internal_storage.fbo));
 }
 
@@ -424,7 +424,7 @@ create_gl_vbo(gl_resource_data *const _resource_data) {
   return (gl_handle_internal_storage){.vbo = {vbo, vao, ebo}};
 }
 
-u0 destroy_gl_vbo(
+static u0 destroy_gl_vbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -475,7 +475,7 @@ create_gl_rbo(gl_resource_data *const _resource_data) {
   return (gl_handle_internal_storage){.rbo = handle};
 }
 
-u0 destroy_gl_rbo(
+static u0 destroy_gl_rbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -515,7 +515,7 @@ create_gl_pbo(gl_resource_data *const _resource_data) {
   return (gl_handle_internal_storage){.pbo = handle};
 }
 
-u0 destroy_gl_pbo(
+static u0 destroy_gl_pbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -668,7 +668,7 @@ done:
                                       }};
 }
 
-u0 destroy_gl_texture(
+static u0 destroy_gl_texture(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -686,7 +686,7 @@ create_gl_shader(gl_resource_data *const _resource_data) {
   return (gl_handle_internal_storage){.shader = handle};
 }
 
-u0 destroy_gl_shader(
+static u0 destroy_gl_shader(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -722,7 +722,7 @@ create_gl_ssbo(gl_resource_data *const _resource_data) {
   return (gl_handle_internal_storage){.ssbo = ssbo};
 }
 
-u0 destroy_gl_ssbo(
+static u0 destroy_gl_ssbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -757,7 +757,7 @@ create_gl_ubo(gl_resource_data *const _resource_data) {
   return (gl_handle_internal_storage){.ubo = ubo};
 }
 
-u0 destroy_gl_ubo(
+static u0 destroy_gl_ubo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
@@ -813,7 +813,7 @@ impl_create_gl_resource(gl_resource_data *const resource_data) {
   return (gl_handle_internal_storage){0};
 }
 
-u0 impl_destroy_gl_resource(
+static u0 impl_destroy_gl_resource(
   gl_resource_data *const resource_data,
   gl_resource_handle      _handle
 ) {
