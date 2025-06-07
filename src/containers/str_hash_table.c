@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <string.h>
 #include <util/zrealloc.h>
+#include <util/dbg/alloctrack.h>
 
 u0 str_hash_table_initialize(
   str_hash_table *const _table,
@@ -16,7 +17,8 @@ u0 str_hash_table_initialize(
 
   _table->obj_size      = _obj_size;
   _table->obj_array_len = _table->str_hasher.bucket_count;
-  _table->buckets = calloc(_table->obj_array_len, sizeof(str_hash_table_slot));
+  _table->buckets =
+    TRACKED_CALLOC(_table->obj_array_len, sizeof(str_hash_table_slot));
   if (!_table->buckets) {
     GAME_CRITICALF("OOM");
     exit(1);
@@ -66,7 +68,7 @@ u32 str_hash_table_insert(
     }
     _table->buckets[idx].used = true;
     /* if the bucket was previously empty the .data pointer is NULL */
-    _table->buckets[idx].data = malloc(_table->obj_size);
+    _table->buckets[idx].data = TRACKED_MALLOC(_table->obj_size);
     if (!_table->buckets[idx].data) {
       GAME_CRITICALF("OOM");
       exit(1);
@@ -86,7 +88,7 @@ u0 str_hash_table_erase(str_hash_table *const _table, const char *_key) {
 
   _table->buckets[idx].used = false;
   if (_table->buckets[idx].data) {
-    free(_table->buckets[idx].data);
+    TRACKED_FREE(_table->buckets[idx].data);
   }
   _table->buckets[idx].data = NULL;
   str_indexer_erase(&_table->str_hasher, _key);
@@ -144,10 +146,10 @@ u0 str_hash_table_destroy(str_hash_table *const _table) {
 
   for (usize i = 0; i != _table->obj_array_len; i++) {
     if (_table->buckets[i].data) {
-      free(_table->buckets[i].data);
+      TRACKED_FREE(_table->buckets[i].data);
     }
   }
-  free(_table->buckets);
+  TRACKED_FREE(_table->buckets);
   _table->buckets = NULL;
 
   str_indexer_destroy(&_table->str_hasher);

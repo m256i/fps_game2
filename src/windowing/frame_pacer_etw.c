@@ -1,9 +1,8 @@
+#include <math.h>
 #ifdef _WIN64
 #include <assert.h>
 #include <containers/spsc_u64.h>
 #include <windowing/frame_pacer.h>
-
-#include <util/dbg/alloctrack.h>
 
 const char *event_id_to_name(unsigned id) {
   switch (id) {
@@ -55,6 +54,147 @@ BufferCallback(EVENT_TRACE_LOGFILEW *__attribute__((unused)) _unused) {
   return TRUE;
 }
 
+static u32 identify_flip_event(EVENT_RECORD *pEvent, TRACE_EVENT_INFO *pInfo) {
+  bool pDmaBuffer_found       = false;
+  bool VidPnSourceId_found    = false;
+  bool FlipToAllocation_found = false;
+  bool FlipInterval_found     = false;
+  bool FlipWithNoWait_found   = false;
+  bool MMIOFlip_found         = false;
+
+  for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
+    EVENT_PROPERTY_INFO *pPropInfo = &pInfo->EventPropertyInfoArray[i];
+    LPCWSTR pname = (LPCWSTR)((PBYTE)pInfo + pPropInfo->NameOffset);
+
+    if (wcscmp(pname, L"pDmaBuffer") == 0) {
+      pDmaBuffer_found = true;
+    } else if (wcscmp(pname, L"VidPnSourceId") == 0) {
+      VidPnSourceId_found = true;
+    } else if (wcscmp(pname, L"FlipToAllocation") == 0) {
+      FlipToAllocation_found = true;
+    } else if (wcscmp(pname, L"FlipInterval") == 0) {
+      FlipInterval_found = true;
+    } else if (wcscmp(pname, L"FlipWithNoWait") == 0) {
+      FlipWithNoWait_found = true;
+    } else if (wcscmp(pname, L"MMIOFlip") == 0) {
+      MMIOFlip_found = true;
+    }
+  }
+
+  if (pDmaBuffer_found && VidPnSourceId_found && FlipToAllocation_found &&
+      FlipInterval_found && FlipWithNoWait_found && MMIOFlip_found) {
+    GAME_LOGF(
+      "flip event has index: %d",
+      pEvent->EventHeader.EventDescriptor.Id
+    );
+    return pEvent->EventHeader.EventDescriptor.Id;
+  } else {
+    return -1ul;
+  }
+}
+
+static u32
+identify_present_event(EVENT_RECORD *pEvent, TRACE_EVENT_INFO *pInfo) {
+  bool hContext_found        = false;
+  bool hWindow_found         = false;
+  bool VidPnSourceId_found   = false;
+  bool FlipInterval_found    = false;
+  bool Flags_found           = false;
+  bool hSrcAllocHandle_found = false;
+  bool hDstAllocHandle_found = false;
+
+  for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
+    EVENT_PROPERTY_INFO *pPropInfo = &pInfo->EventPropertyInfoArray[i];
+    LPCWSTR pname = (LPCWSTR)((PBYTE)pInfo + pPropInfo->NameOffset);
+
+    if (wcscmp(pname, L"hContext") == 0) {
+      hContext_found = true;
+    } else if (wcscmp(pname, L"hWindow") == 0) {
+      hWindow_found = true;
+    } else if (wcscmp(pname, L"VidPnSourceId") == 0) {
+      VidPnSourceId_found = true;
+    } else if (wcscmp(pname, L"FlipInterval") == 0) {
+      FlipInterval_found = true;
+    } else if (wcscmp(pname, L"Flags") == 0) {
+      Flags_found = true;
+    } else if (wcscmp(pname, L"hSrcAllocHandle") == 0) {
+      hSrcAllocHandle_found = true;
+    } else if (wcscmp(pname, L"hDstAllocHandle") == 0) {
+      hDstAllocHandle_found = true;
+    }
+  }
+
+  if (hContext_found && hWindow_found && VidPnSourceId_found &&
+      FlipInterval_found && Flags_found && hSrcAllocHandle_found &&
+      hDstAllocHandle_found) {
+    GAME_LOGF(
+      "present event has index: %d",
+      pEvent->EventHeader.EventDescriptor.Id
+    );
+    return pEvent->EventHeader.EventDescriptor.Id;
+  } else {
+    return -1ul;
+  }
+}
+
+static bool
+event_for_right_monitor(EVENT_RECORD *pEvent, TRACE_EVENT_INFO *pInfo) {
+  ULONG status;
+  for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
+    EVENT_PROPERTY_INFO *pPropInfo = &pInfo->EventPropertyInfoArray[i];
+    LPCWSTR pname = (LPCWSTR)((PBYTE)pInfo + pPropInfo->NameOffset);
+
+    if (wcscmp(pname, L"VidPnSourceId") == 0) {
+      PROPERTY_DATA_DESCRIPTOR dataDescriptor;
+      ZeroMemory(&dataDescriptor, sizeof(PROPERTY_DATA_DESCRIPTOR));
+      dataDescriptor.PropertyName = (ULONGLONG)pname;
+      dataDescriptor.ArrayIndex   = ULONG_MAX;
+      ULONG propertySize          = 0;
+
+      status =
+        TdhGetPropertySize(pEvent, 0, NULL, 1, &dataDescriptor, &propertySize);
+
+      if (status != ERROR_SUCCESS) {
+        wprintf(L"  %s: <ETW: Error retrieving size (0x%x)>\n", pname, status);
+        return false;
+      }
+
+      /* its a u32 but we generally just care that its a word sized integer
+      that we can != 0 with
+      */
+      assert(propertySize <= sizeof(u64));
+      char *property_data = alloca(propertySize);
+
+      status = TdhGetProperty(
+        pEvent,
+        0,
+        NULL,
+        1,
+        &dataDescriptor,
+        propertySize,
+        (PBYTE)property_data
+      );
+
+      if (status != ERROR_SUCCESS) {
+        wprintf(L"  %s: <Error retrieving value (0x%x)>\n", pname, status);
+        return false;
+      }
+
+      /* monitor index should be 0 for main monitor */
+      if ((*(u32 *)property_data) == 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/*
+were not using TRACKED_MALLOC and TRACKED_FREE here
+because the allocation logic is trivial and doesnt actually need to be
+tracked.
+*/
 VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
   ULONG             status;
   ULONG             bufferSize = 0;
@@ -89,116 +229,56 @@ VOID WINAPI EventRecordCallback(EVENT_RECORD *pEvent) {
     return;
   }
 
-  /* flip event timestamp */
-  const UINT64 qpc          = pEvent->EventHeader.TimeStamp.QuadPart;
-  static u32   flip_info_id = -1ul;
+  /* event timestamp */
+  const UINT64 qpc = pEvent->EventHeader.TimeStamp.QuadPart;
 
-  if (flip_info_id == -1ul) {
-    /* flip event index not yet found */
-    bool pDmaBuffer_found       = false;
-    bool VidPnSourceId_found    = false;
-    bool FlipToAllocation_found = false;
-    bool FlipInterval_found     = false;
-    bool FlipWithNoWait_found   = false;
-    bool MMIOFlip_found         = false;
+  static LARGE_INTEGER pfc = {0};
+  if (pfc.QuadPart == 0) {
+    QueryPerformanceFrequency(&pfc);
+  }
 
-    for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
-      EVENT_PROPERTY_INFO *pPropInfo = &pInfo->EventPropertyInfoArray[i];
-      LPCWSTR pname = (LPCWSTR)((PBYTE)pInfo + pPropInfo->NameOffset);
+  f64 time_ns = (f64)qpc / (f64)pfc.QuadPart *
+                1e9; /* i assume QPC / frequency gives me time in seconds? */
 
-      if (wcscmp(pname, L"pDmaBuffer") == 0) {
-        pDmaBuffer_found = true;
-      } else if (wcscmp(pname, L"VidPnSourceId") == 0) {
-        VidPnSourceId_found = true;
-      } else if (wcscmp(pname, L"FlipToAllocation") == 0) {
-        FlipToAllocation_found = true;
-      } else if (wcscmp(pname, L"FlipInterval") == 0) {
-        FlipInterval_found = true;
-      } else if (wcscmp(pname, L"FlipWithNoWait") == 0) {
-        FlipWithNoWait_found = true;
-      } else if (wcscmp(pname, L"MMIOFlip") == 0) {
-        MMIOFlip_found = true;
-      }
-    }
+  // printf(
+  //   "---------------- %s (%d) ----------------\n",
+  //   event_id_to_name(pEvent->EventHeader.EventDescriptor.Id),
+  //   pEvent->EventHeader.EventDescriptor.Id
+  // );
 
-    if (pDmaBuffer_found && VidPnSourceId_found && FlipToAllocation_found &&
-        FlipInterval_found && FlipWithNoWait_found && MMIOFlip_found) {
-      flip_info_id = pEvent->EventHeader.EventDescriptor.Id;
-      GAME_LOGF("flip event has index: %d", flip_info_id);
-    } else {
-      return;
+  static u32 flip_event_id    = -1ul;
+  static u32 present_event_id = -1ul;
+
+  static f64 last_present_ts_ns = 0;
+  static f64 last_flip_ts_ns    = 0;
+
+  if (flip_event_id == -1ul) {
+    flip_event_id = identify_flip_event(pEvent, pInfo);
+  }
+
+  if (present_event_id == -1ul) {
+    present_event_id = identify_present_event(pEvent, pInfo);
+  }
+
+  if (pEvent->EventHeader.EventDescriptor.Id == present_event_id &&
+      event_for_right_monitor(pEvent, pInfo)) {
+    printf("PRESENT EVENT fired at: %llu\n", qpc);
+    last_present_ts_ns = time_ns;
+  }
+
+  if (pEvent->EventHeader.EventDescriptor.Id == flip_event_id &&
+      event_for_right_monitor(pEvent, pInfo)) {
+    printf("FLIP EVENT fired    at: %llu\n", qpc);
+    last_flip_ts_ns = time_ns;
+
+    if (last_flip_ts_ns >= last_present_ts_ns) {
+      printf(
+        "LAST DRIVER PRESENT-FLIP LATENCY: %lf ms\n",
+        (last_flip_ts_ns - last_present_ts_ns) / 1e6
+      );
     }
   }
-  /* ...yes i know, but it changes between statements */
-  if (flip_info_id != -1ul) {
-    if (pEvent->EventHeader.EventDescriptor.Id != flip_info_id) {
-      free(pInfo);
-      return;
-    }
-    for (USHORT i = 0; i < pInfo->TopLevelPropertyCount; ++i) {
-      EVENT_PROPERTY_INFO *pPropInfo = &pInfo->EventPropertyInfoArray[i];
-      LPCWSTR pname = (LPCWSTR)((PBYTE)pInfo + pPropInfo->NameOffset);
 
-      if (wcscmp(pname, L"VidPnSourceId") == 0) {
-        /*
-        we know the id already so we note this event;
-        */
-        PROPERTY_DATA_DESCRIPTOR dataDescriptor;
-        ZeroMemory(&dataDescriptor, sizeof(PROPERTY_DATA_DESCRIPTOR));
-        dataDescriptor.PropertyName = (ULONGLONG)pname;
-        dataDescriptor.ArrayIndex   = ULONG_MAX;
-
-        ULONG propertySize = 0;
-        status             = TdhGetPropertySize(
-          pEvent,
-          0,
-          NULL,
-          1,
-          &dataDescriptor,
-          &propertySize
-        );
-
-        if (status != ERROR_SUCCESS) {
-          wprintf(
-            L"  %s: <ETW: Error retrieving size (0x%x)>\n",
-            pname,
-            status
-          );
-          free(pInfo);
-          return;
-        }
-        GAME_ASSERT(propertySize == sizeof(u32));
-
-        /* making this a u64 even though it should be a u32 just to be safe and
-         * future proof */
-        u32 monitor_index = -1;
-
-        status = TdhGetProperty(
-          pEvent,
-          0,
-          NULL,
-          1,
-          &dataDescriptor,
-          propertySize,
-          (PBYTE)&monitor_index
-        );
-
-        if (status != ERROR_SUCCESS) {
-          wprintf(L"  %s: <Error retrieving value (0x%x)>\n", pname, status);
-          free(pInfo);
-          return;
-        }
-
-        if (monitor_index == 0) {
-          spsc_u64_16_clear(flip_queue);
-          // GAME_LOGF("recieved Flip event from kernel: timestamp: %llu",
-          // qpc);
-          spsc_u64_16_enqueue(flip_queue, qpc);
-        }
-        break;
-      }
-    }
-  }
   free(pInfo);
 }
 #endif

@@ -329,10 +329,10 @@ u0 destroy_frame_pacer(frame_pacer_context *const _ctx) {
   //   continue;
   // }
 
-  _ctx->s_hTrace   = 0;
-  _ctx->s_hSession = 0;
+  // _ctx->s_hTrace   = 0;
+  // _ctx->s_hSession = 0;
 
-  GAME_LOGF("destroyed frame pacer");
+  // GAME_LOGF("destroyed frame pacer");
   _ctx->initialized = false;
 }
 
@@ -399,20 +399,21 @@ u0 schedule_next_render_and_present(
     // GAME_LOGF("new: %llu old: %llu", last_vblank, previous_vblank);
     previous_vblank = last_vblank;
 
-    const usize fq_sz = spsc_u64_16_size(&_ctx->flip_queue);
+    // const usize fq_sz = spsc_u64_16_size(&_ctx->flip_queue);
 
-    for (usize i = 0; i != fq_sz; i++) {
-      u64 flip_rts = 0;
-      spsc_u64_16_dequeue(&_ctx->flip_queue, &flip_rts);
+    // for (usize i = 0; i != fq_sz; i++) {
+    //   u64 flip_rts = 0;
+    //   spsc_u64_16_dequeue(&_ctx->flip_queue, &flip_rts);
 
-      u64 flip_ts =
-        ((u64)((f64)flip_rts / (f64)RGFW_getTimerFreq() * 1e9) -
-         ((f64)RGFW_getTimerOffsetRaw() / (f64)RGFW_getTimerFreq() * 1e9));
-      // GAME_LOGF("flip timestamp received: %llu", flip_ts);
-      // GAME_LOGF("time: %llu", RGFW_getTimeNS());
-      // GAME_LOGF("timer offset: %llu", RGFW_getTimerOffsetRaw());
-      // GAME_LOGF("delta: %lf", ((f64)RGFW_getTimeNS() - (f64)flip_ts) / 1e6);
-    }
+    //   u64 flip_ts =
+    //     ((u64)((f64)flip_rts / (f64)RGFW_getTimerFreq() * 1e9) -
+    //      ((f64)RGFW_getTimerOffsetRaw() / (f64)RGFW_getTimerFreq() * 1e9));
+    //   // GAME_LOGF("flip timestamp received: %llu", flip_ts);
+    //   // GAME_LOGF("time: %llu", RGFW_getTimeNS());
+    //   // GAME_LOGF("timer offset: %llu", RGFW_getTimerOffsetRaw());
+    //   // GAME_LOGF("delta: %lf", ((f64)RGFW_getTimeNS() - (f64)flip_ts) /
+    //   1e6);
+    // }
 
     /*
     TODO: on low fps these result in always missing frames obviously

@@ -4,10 +4,11 @@
 #include <containers/str_indexer.h>
 #include <util/fnv1a32.h>
 #include <util/array_copy.h>
+#include <util/dbg/alloctrack.h>
 
 /* grow table to new_capacity, re-inserting all live entries */
 u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
-  hash_slot *new_data = calloc(new_capacity, sizeof *new_data);
+  hash_slot *new_data = TRACKED_CALLOC(new_capacity, sizeof *new_data);
   if (!new_data) {
     GAME_CRITICALF("OOM");
     exit(1);
@@ -24,13 +25,14 @@ u0 str_indexer_resize(str_indexer *t, usize new_capacity) {
     new_data[idx]         = *old; /* copies hash, key pointer, id, flags */
     new_data[idx].deleted = false;
   }
-  free(t->data);
+  TRACKED_FREE(t->data);
   t->data         = new_data;
   t->bucket_count = new_capacity;
 }
 
 /* find slot for hash+key (either existing or first free/tombstone) */
-static usize str_indexer_probe_slot(str_indexer *t, u32 hash, const char *key) {
+static usize
+str_indexer_probe_slot(const str_indexer *t, u32 hash, const char *key) {
   GAME_ASSERT(t->bucket_count > 0);
   usize idx = (usize)(hash % t->bucket_count);
   for (usize probes = 0; probes < t->bucket_count; probes++) {
@@ -54,7 +56,7 @@ u0 str_indexer_initialize(str_indexer *_map, usize _init_size) {
   _map->next_id      = 0;
   _map->data         = NULL;
   if (_init_size == 0) return;
-  _map->data = calloc(_init_size, sizeof *_map->data);
+  _map->data = TRACKED_CALLOC(_init_size, sizeof *_map->data);
   if (!_map->data) {
     GAME_CRITICALF("OOM");
     exit(1);
@@ -65,10 +67,10 @@ u0 str_indexer_destroy(str_indexer *_map) {
   if (!_map->data) return;
   for (usize i = 0; i < _map->bucket_count; i++) {
     if (_map->data[i].used && _map->data[i].key) {
-      free(_map->data[i].key);
+      TRACKED_FREE(_map->data[i].key);
     }
   }
-  free(_map->data);
+  TRACKED_FREE(_map->data);
   _map->data         = NULL;
   _map->bucket_count = _map->used_count = 0;
   _map->next_id                         = 0;
@@ -126,7 +128,7 @@ u0 str_indexer_erase(str_indexer *_map, const char *_key) {
     hash_slot *slot = &_map->data[idx];
     if (!slot->used && !slot->deleted) return;
     if (slot->used && slot->hash == hash && strcmp(slot->key, _key) == 0) {
-      free(slot->key);
+      TRACKED_FREE(slot->key);
       slot->key     = NULL;
       slot->used    = false;
       slot->deleted = true;
