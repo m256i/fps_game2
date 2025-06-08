@@ -11,7 +11,7 @@
 #define CAMERA_INITIAL_PITCH       0.f
 #define CAMERA_INITIAL_SPEED       5.6f
 #define CAMERA_INITIAL_SENSITIVITY 0.2f
-#define CAMERA_INITIAL_FOV         100.f
+#define CAMERA_INITIAL_FOV         90.f
 #define CAMERA_INITIAL_FRONT       ((vec3){.x = 0.f, .y = 1.f, .z = -1.f})
 #define CAMERA_WORLD_UP            ((vec3){.x = 0.f, .y = 1.f, .z = 0.f})
 
