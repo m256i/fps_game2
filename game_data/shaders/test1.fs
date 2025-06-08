@@ -31,7 +31,11 @@ const float FOG_DISTANCE = 1.5;
 
 void main() {
   float fog_mask = clamp((1 / (camera_distance / FOG_DISTANCE)), 0.0, 1.0);
-  FragColor = vec4(fog_mask, fog_mask, 0.0, 1.0);
+  if (!gl_FrontFacing) {
+        FragColor = vec4(fog_mask, 0, 0, 1);  // red = back face
+  } else {
+        FragColor = vec4(0, fog_mask, 0, 1);  // green = front face
+  }
 }
 
 // void main() {

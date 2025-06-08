@@ -1,22 +1,11 @@
 #ifndef MATH_MAT4_H_
 #define MATH_MAT4_H_
 
-/*
-TODO:
-
-
-view_matrix4(pos, forward, up)
-perspective_matrix4(fov_radians, f32 aspect_ratio, znear, zfar)
-
-
-*/
-
 #include <common.h>
 #include <math/vec3.h>
 #include <string.h>
 
 typedef struct {
-  /* we want this to be packed so we wont use alignas(32) or __m256s */
   union {
     _Alignas(16) struct {
       f32 m00, m10, m20, m30;
@@ -45,41 +34,52 @@ static inline u0 mat4_identity(mat4 *const _m0) {
 static inline u0 mat4_clear(mat4 *const _m0) { memset(_m0, 0, sizeof *_m0); }
 
 static inline u0
-mat4_look_at(mat4 *m, const vec3 *eye, const vec3 *center, const vec3 *up) {
-  vec3 f;
-  vec3_sub_inplace(&f, center, eye);
-  vec3_normalize_inplace(&f);
+mat4_mul(mat4 *const _result, const mat4 *const _m0, const mat4 *const _m1) {
+  for (int col = 0; col < 4; ++col) {
+    __m128 b0 = _mm_set1_ps(_m1->data[col * 4 + 0]);
+    __m128 b1 = _mm_set1_ps(_m1->data[col * 4 + 1]);
+    __m128 b2 = _mm_set1_ps(_m1->data[col * 4 + 2]);
+    __m128 b3 = _mm_set1_ps(_m1->data[col * 4 + 3]);
 
-  vec3 u = vec3_normalize(up);
-  vec3 s = vec3_cross(&f, &u);
-  vec3_normalize_inplace(&s);
+    __m128 result_col = _mm_mul_ps(_m0->vec4_data[0], b0);
+    result_col = _mm_add_ps(result_col, _mm_mul_ps(_m0->vec4_data[1], b1));
+    result_col = _mm_add_ps(result_col, _mm_mul_ps(_m0->vec4_data[2], b2));
+    result_col = _mm_add_ps(result_col, _mm_mul_ps(_m0->vec4_data[3], b3));
 
-  // Negative forward for RH
-  vec3 nf = {-f.x, -f.y, -f.z};
+    _result->vec4_data[col] = result_col;
+  }
+}
 
-  // Column 0
-  m->data[0 * 4 + 0] = s.x;
-  m->data[0 * 4 + 1] = u.x;
-  m->data[0 * 4 + 2] = nf.x;
-  m->data[0 * 4 + 3] = 0.f;
-
-  // Column 1
-  m->data[1 * 4 + 0] = s.y;
-  m->data[1 * 4 + 1] = u.y;
-  m->data[1 * 4 + 2] = nf.y;
-  m->data[1 * 4 + 3] = 0.f;
-
-  // Column 2
-  m->data[2 * 4 + 0] = s.z;
-  m->data[2 * 4 + 1] = u.z;
-  m->data[2 * 4 + 2] = nf.z;
-  m->data[2 * 4 + 3] = 0.f;
-
-  // Column 3 (translation)
-  m->data[3 * 4 + 0] = -vec3_dot(&s, eye);
-  m->data[3 * 4 + 1] = -vec3_dot(&u, eye);
-  m->data[3 * 4 + 2] = vec3_dot(&f, eye);
-  m->data[3 * 4 + 3] = 1.f;
+static inline u0 mat4_look_at(
+  mat4       *m,
+  const vec3 *position,
+  const vec3 *target,
+  const vec3 *up
+) {
+  vec3 tmp_forward;
+  vec3 tmp_side;
+  vec3 tmp_up;
+  tmp_forward = vec3_sub(target, position);
+  tmp_forward = vec3_normalize(&tmp_forward);
+  tmp_side    = vec3_cross(&tmp_forward, up);
+  tmp_side    = vec3_normalize(&tmp_side);
+  tmp_up      = vec3_cross(&tmp_side, &tmp_forward);
+  m->data[0]  = tmp_side.x;
+  m->data[1]  = tmp_up.x;
+  m->data[2]  = -tmp_forward.x;
+  m->data[3]  = 0;
+  m->data[4]  = tmp_side.y;
+  m->data[5]  = tmp_up.y;
+  m->data[6]  = -tmp_forward.y;
+  m->data[7]  = 0;
+  m->data[8]  = tmp_side.z;
+  m->data[9]  = tmp_up.z;
+  m->data[10] = -tmp_forward.z;
+  m->data[11] = 0;
+  m->data[12] = -vec3_dot(&tmp_side, position);
+  m->data[13] = -vec3_dot(&tmp_up, position);
+  m->data[14] = vec3_dot(&tmp_forward, position);
+  m->data[15] = 1.0;
 }
 
 static inline u0 mat4_perspective(

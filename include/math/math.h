@@ -8,7 +8,7 @@ static inline f64 clamp(f64 _d, f64 _min, f64 _max) {
   return t > _max ? _max : t;
 }
 
-static inline f64 clampf(f32 _d, f32 _min, f32 _max) {
+static inline f32 clampf(f32 _d, f32 _min, f32 _max) {
   const f32 t = _d < _min ? _min : _d;
   return t > _max ? _max : t;
 }

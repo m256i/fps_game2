@@ -37,11 +37,34 @@ u0 mouse_cb(RGFW_window *win, RGFW_point point, RGFW_point vector) {
   camera_process_mouse_movement(&cam, vector.x, -vector.y);
 }
 
+void print_mat4(f32 data[16]) {
+  puts("---------------");
+  printf("| %f %f %f %f |\n", data[0], data[1], data[2], data[3]);
+  printf("| %f %f %f %f |\n", data[4], data[5], data[6], data[7]);
+  printf("| %f %f %f %f |\n", data[8], data[9], data[10], data[11]);
+  printf("| %f %f %f %f |\n", data[12], data[13], data[14], data[15]);
+  puts("---------------");
+}
+
+void swap(f32 *a, f32 *b) {
+  f32 tmp = *a;
+  *a      = *b;
+  *b      = tmp;
+}
+
+u64 framecount = 0;
+
 bool render(u0) {
+  ++framecount;
+  u64 startTime = RGFW_getTimeNS();
+
   GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
-  GL_CALL(
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
-  );
+  GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT););
+
+  GL_CALL(glEnable(GL_DEPTH_TEST));
+  GL_CALL(glEnable(GL_CULL_FACE));
+  GL_CALL(glCullFace(GL_BACK));
+  GL_CALL(glFrontFace(GL_CCW));
 
   GL_CALL(glUseProgram(program));
 
@@ -52,7 +75,7 @@ bool render(u0) {
   camera_get_view_matrix(&view, &cam);
 
   mat4_clear(&proj);
-  mat4_perspective(&proj, DEG2RAD(100.f), 16.f / 9.f, 0.1f, 1000.f);
+  mat4_perspective(&proj, DEG2RAD(90.f), 16.f / 9.f, 0.01f, 1000.f);
 
   GL_CALL(glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data));
   GL_CALL(glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data));
@@ -61,49 +84,85 @@ bool render(u0) {
   GL_CALL(glBindVertexArray(rh->internal_storage.vbo.vao_handle));
   GL_CALL(glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL));
 
-  // nk_glfw3_new_frame();
-  // if (nk_begin(
-  //       ctx,
-  //       "Demo",
-  //       nk_rect(50, 50, 230, 250),
-  //       NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
-  //         NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE
-  //     )) {
-  //   enum { EASY, HARD };
-  //   static int op       = EASY;
-  //   static int property = 20;
+  nk_glfw3_new_frame();
+  if (nk_begin(
+        ctx,
+        "Demo",
+        nk_rect(50, 50, 230, 250),
+        NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
+          NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE
+      )) {
+    enum { EASY, HARD };
+    static int op       = EASY;
+    static int property = 20;
 
-  //   nk_layout_row_static(ctx, 30, 80, 1);
-  //   if (nk_button_label(ctx, "button")) GAME_LOGF("button pressed");
-  //   nk_layout_row_dynamic(ctx, 30, 2);
+    nk_layout_row_static(ctx, 30, 80, 1);
+    if (nk_button_label(ctx, "button")) GAME_LOGF("button pressed");
+    nk_layout_row_dynamic(ctx, 30, 2);
 
-  //   if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
-  //   if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+    if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+    if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
 
-  //   nk_layout_row_dynamic(ctx, 25, 1);
-  //   nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
-  //   nk_layout_row_dynamic(ctx, 20, 1);
-  //   nk_label(ctx, "background:", NK_TEXT_LEFT);
-  //   nk_layout_row_dynamic(ctx, 25, 1);
+    nk_layout_row_dynamic(ctx, 25, 1);
+    nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
+    nk_layout_row_dynamic(ctx, 20, 1);
+    nk_label(ctx, "background:", NK_TEXT_LEFT);
+    nk_layout_row_dynamic(ctx, 25, 1);
 
-  //   if (nk_combo_begin_color(
-  //         ctx,
-  //         nk_rgb_cf(bg),
-  //         nk_vec2(nk_widget_width(ctx), 400)
-  //       )) {
-  //     nk_layout_row_dynamic(ctx, 120, 1);
-  //     bg = nk_color_picker(ctx, bg, NK_RGBA);
-  //     nk_layout_row_dynamic(ctx, 25, 1);
-  //     bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
-  //     bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
-  //     bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
-  //     bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
-  //     nk_combo_end(ctx);
-  //   }
-  // }
-  // nk_end(ctx);
-  // nk_glfw3_render();
+    if (nk_combo_begin_color(
+          ctx,
+          nk_rgb_cf(bg),
+          nk_vec2(nk_widget_width(ctx), 400)
+        )) {
+      nk_layout_row_dynamic(ctx, 120, 1);
+      bg = nk_color_picker(ctx, bg, NK_RGBA);
+      nk_layout_row_dynamic(ctx, 25, 1);
+      bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
+      bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
+      bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
+      bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
+      nk_combo_end(ctx);
+    }
+  }
+  nk_end(ctx);
+  nk_glfw3_render();
+
+  u64 endTime      = RGFW_getTimeNS();
+  f64 frametime_ms = ((f64)(endTime - startTime)) / 1e6;
+
+  if (framecount % 300 == 0) {
+    GAME_LOGF(
+      "render time: %lf ms (fps: %lf)",
+      frametime_ms,
+      1000.0 / frametime_ms
+    );
+  }
   return true;
+}
+
+void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
+  vec3 front_scaled = vec3_scale(&cam->vec_front, velocity);
+  vec3 right_scaled = vec3_scale(&cam->vec_right, velocity);
+
+  if (RGFW_isPressed(window, RGFW_w)) {
+    cam->position = vec3_add(&cam->position, &front_scaled);
+  }
+  if (RGFW_isPressed(window, RGFW_s)) {
+    cam->position = vec3_sub(&cam->position, &front_scaled);
+  }
+  if (RGFW_isPressed(window, RGFW_d)) {
+    cam->position = vec3_add(&cam->position, &right_scaled);
+  }
+  if (RGFW_isPressed(window, RGFW_a)) {
+    cam->position = vec3_sub(&cam->position, &right_scaled);
+  }
+
+  if (RGFW_isPressed(window, RGFW_space)) {
+    cam->position.y += velocity;
+  }
+  if (RGFW_isPressed(window, RGFW_shiftL)) {
+    cam->position.y -= velocity;
+  }
 }
 
 int main(u0) {
@@ -121,12 +180,13 @@ int main(u0) {
   create_gl_context();
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
-  f32 vertices[] = {-0.5f, -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, 0.5f, 0.5f,
-                    -0.5f, -0.5f, 0.5f,  -0.5f, -0.5f, -0.5f, 0.5f, 0.5f,
-                    -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f, 0.5f};
+  float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,  0.5f,  0.5f,
+                      0.5f,  -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f, 0.5f,
+                      -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f,  -0.5f};
 
-  u32 indices[] = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 0, 3, 7, 7, 4, 0,
-                   1, 5, 6, 6, 2, 1, 3, 2, 6, 6, 7, 3, 0, 4, 5, 5, 1, 0};
+  unsigned int indices[] = {0, 1, 2, 2, 3, 0, 5, 4, 7, 7, 6, 5,
+                            4, 0, 3, 3, 7, 4, 1, 5, 6, 6, 2, 1,
+                            3, 2, 6, 6, 7, 3, 4, 5, 1, 1, 0, 4};
 
   // clang-format off
   gl_resource_data rd = (gl_resource_data){
@@ -144,7 +204,7 @@ int main(u0) {
      .raw_size            = sizeof(vertices),
      .vertex_data         = (u8*)vertices,
      .index_data          = (u8*)indices,
-     .index_count         = (sizeof(indices) / sizeof(i32)),
+     .index_count         = (sizeof(indices) / sizeof(u32)),
      .index_type          = GL_UNSIGNED_INT
     },
    .resource_name = "my_vertex_buffer0"
@@ -200,8 +260,7 @@ int main(u0) {
 
   camera_initialize(
     &cam,
-    make_vec3(2, 2, 2),
-    make_vec3(0, 1.f, 0),
+    make_vec3(-4, 0, 0),
     CAMERA_INITIAL_YAW,
     CAMERA_INITIAL_PITCH
   );
@@ -251,7 +310,24 @@ int main(u0) {
 
   window_set_render_proc(render);
 
+  // while (!window_should_close()) {
+  //   update_camera_move(&cam, get_global_internal_window(), 0.0001);
+  //   window_run_render_proc();
+  // }
+  double last_time = RGFW_getTimeNS();
+  float  speed     = 10;
+
   while (!window_should_close()) {
+    double current_time = RGFW_getTimeNS();
+    double delta_time   = (current_time - last_time) / 1e9;
+    last_time           = current_time;
+
+    update_camera_move(
+      &cam,
+      get_global_internal_window(),
+      speed * delta_time
+    ); // adjust speed multiplier
+
     window_run_render_proc();
   }
 

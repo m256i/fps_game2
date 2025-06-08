@@ -12,4 +12,13 @@
     default: (x) * 0.017453292519943295                                        \
   )
 
+#define RAD2DEG(x)                                                             \
+  _Generic(                                                                    \
+    (x),                                                                       \
+    float: (x) * 57.295779513f,                                                \
+    double: (x) * 57.295779513082320876,                                       \
+    long double: (x) * 57.295779513082320876L,                                 \
+    default: (x) * 57.295779513082320876                                       \
+  )
+
 #endif // MATH_ANGLES_H_

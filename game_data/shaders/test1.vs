@@ -15,9 +15,8 @@ uniform mat4 projection;
 out float camera_distance;
 
 void main() {
-  // oTexCoords  = aTexCoords;
-  // u_mousePos = vec2((OffsetX + 0.5), OffsetY);
-  vec3 camera_pos = vec3(view[0][2], view[1][2], view[2][2]);
+  vec3 camera_pos = -vec3(view[3][0], view[3][1], view[3][2]) * mat3(view);
   camera_distance = length(view * model * vec4(aPos, 1.0) - vec4(camera_pos, 0));
+  camera_distance = (camera_distance * camera_distance) / 2;
   gl_Position = projection * view * model * vec4(aPos, 1.0);
 }

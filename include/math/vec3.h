@@ -62,7 +62,7 @@ static inline f32 vec3_length(const vec3 *const _v0) {
   return sqrtf(vec3_dot(_v0, _v0));
 }
 
-static inline f32 vec3_length_sqared(const vec3 *const _v0) {
+static inline f32 vec3_length_squared(const vec3 *const _v0) {
   return vec3_dot(_v0, _v0);
 }
 
@@ -74,7 +74,7 @@ static inline f32 vec3_dist(const vec3 *const _v0, const vec3 *const _v1) {
 static inline f32
 vec3_dist_squared(const vec3 *const _v0, const vec3 *const _v1) {
   const vec3 diff = vec3_sub(_v1, _v0);
-  return vec3_length_sqared(&diff);
+  return vec3_length_squared(&diff);
 }
 
 /*
