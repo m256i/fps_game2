@@ -23,6 +23,7 @@ typedef struct {
   GLuint memory_object;
   GLuint texture_handle;
   GLuint fbo_handle;
+  GLuint depth_rbo_handle;
 } shared_fbo;
 /* a "ringbuffer of shared textures/fbos" */
 typedef struct {

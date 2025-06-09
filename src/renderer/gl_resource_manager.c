@@ -354,7 +354,6 @@ create_gl_vbo(gl_resource_data *const _resource_data) {
   const vertex_buffer_creation_info *const vc =
     &_resource_data->desc.vertex_buffer;
 
-  GAME_ASSERT(vc->raw_size < MAX_VERTEX_COUNT);
   GAME_ASSERT(
     vc->buffer_usage == GL_DYNAMIC_DRAW || vc->buffer_usage == GL_STATIC_DRAW ||
     vc->buffer_usage == GL_STREAM_DRAW
@@ -380,7 +379,9 @@ create_gl_vbo(gl_resource_data *const _resource_data) {
     vertex_attribute_info *a_info = &vc->vertex_attributes[i];
     stride += gl_type_to_size(a_info->attribute_type) * a_info->attribute_count;
   }
+
   GAME_ASSERT(vc->raw_size % stride == 0);
+  GAME_ASSERT(vc->raw_size < MAX_VERTEX_COUNT * stride);
 
   GL_CALL(glVertexArrayVertexBuffer(vao, 0, vbo, 0, stride));
   for (usize i = 0; i < vc->num_attributes; i++) {

@@ -10,9 +10,18 @@
 // out vec4 FragColor;
 
 in float camera_distance;
+in vec3 oNormals;
+
 out vec4 FragColor;
 
-const float FOG_DISTANCE = 1.5;
+float near = 0.1; 
+float far  = 20.0; 
+  
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
+}
 
 // vec3 hsv2rgb(in vec3 hsv) {
 //     float h = hsv.x * 6.0;
@@ -30,12 +39,8 @@ const float FOG_DISTANCE = 1.5;
 // }
 
 void main() {
-  float fog_mask = clamp((1 / (camera_distance / FOG_DISTANCE)), 0.0, 1.0);
-  if (!gl_FrontFacing) {
-        FragColor = vec4(fog_mask, 0, 0, 1);  // red = back face
-  } else {
-        FragColor = vec4(0, fog_mask, 0, 1);  // green = front face
-  }
+  float depth = 1 - LinearizeDepth(gl_FragCoord.z) / far;
+  FragColor = vec4(abs(oNormals.x) * depth,abs(oNormals.y)* depth,abs(oNormals.z) * depth, 1);
 }
 
 // void main() {

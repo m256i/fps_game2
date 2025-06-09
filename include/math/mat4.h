@@ -33,6 +33,24 @@ static inline u0 mat4_identity(mat4 *const _m0) {
 
 static inline u0 mat4_clear(mat4 *const _m0) { memset(_m0, 0, sizeof *_m0); }
 
+static inline void
+mat4_scale(mat4 *const _result, const vec3 *const _dimensions) {
+  _result->m00 *= _dimensions->x;
+  _result->m10 *= _dimensions->x;
+  _result->m20 *= _dimensions->x;
+  _result->m30 *= _dimensions->x;
+
+  _result->m01 *= _dimensions->y;
+  _result->m11 *= _dimensions->y;
+  _result->m21 *= _dimensions->y;
+  _result->m31 *= _dimensions->y;
+
+  _result->m02 *= _dimensions->z;
+  _result->m12 *= _dimensions->z;
+  _result->m22 *= _dimensions->z;
+  _result->m32 *= _dimensions->z;
+}
+
 static inline u0
 mat4_mul(mat4 *const _result, const mat4 *const _m0, const mat4 *const _m1) {
   for (int col = 0; col < 4; ++col) {
@@ -48,6 +66,29 @@ mat4_mul(mat4 *const _result, const mat4 *const _m0, const mat4 *const _m1) {
 
     _result->vec4_data[col] = result_col;
   }
+}
+
+static inline void mat4_translate(mat4 *const _result, const vec3 *const _pos) {
+  mat4 t = {
+    .m00 = 1.f,
+    .m01 = 0.f,
+    .m02 = 0.f,
+    .m03 = _pos->x,
+    .m10 = 0.f,
+    .m11 = 1.f,
+    .m12 = 0.f,
+    .m13 = _pos->y,
+    .m20 = 0.f,
+    .m21 = 0.f,
+    .m22 = 1.f,
+    .m23 = _pos->z,
+    .m30 = 0.f,
+    .m31 = 0.f,
+    .m32 = 0.f,
+    .m33 = 1.f
+  };
+
+  mat4_mul(_result, _result, &t);
 }
 
 static inline u0 mat4_look_at(
@@ -93,7 +134,7 @@ static inline u0 mat4_perspective(
   _result->m00           = 1.f / (_aspect * tan_half_fov);
   _result->m11           = 1.f / tan_half_fov;
   _result->m22           = -(_zfar + _znear) / (_zfar - _znear);
-  _result->m23           = -(2.f * _zfar * _znear) / (_zfar - _znear);
+  _result->m23           = -(2 * _zfar * _znear) / (_zfar - _znear);
   _result->m32           = -1.f;
 }
 

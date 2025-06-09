@@ -17,6 +17,7 @@
 #include <gui/nuklear.h>
 #include <renderer/gl_api.h>
 #include <renderer/camera.h>
+#include <renderer/meshing/import_mesh.h>
 
 GLint  model_loc;
 GLint  view_loc;
@@ -37,22 +38,8 @@ u0 mouse_cb(RGFW_window *win, RGFW_point point, RGFW_point vector) {
   camera_process_mouse_movement(&cam, vector.x, -vector.y);
 }
 
-void print_mat4(f32 data[16]) {
-  puts("---------------");
-  printf("| %f %f %f %f |\n", data[0], data[1], data[2], data[3]);
-  printf("| %f %f %f %f |\n", data[4], data[5], data[6], data[7]);
-  printf("| %f %f %f %f |\n", data[8], data[9], data[10], data[11]);
-  printf("| %f %f %f %f |\n", data[12], data[13], data[14], data[15]);
-  puts("---------------");
-}
-
-void swap(f32 *a, f32 *b) {
-  f32 tmp = *a;
-  *a      = *b;
-  *b      = tmp;
-}
-
-u64 framecount = 0;
+u64   framecount     = 0;
+usize meshIndexCount = 0;
 
 bool render(u0) {
   ++framecount;
@@ -61,78 +48,82 @@ bool render(u0) {
   GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
   GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT););
 
+  GL_CALL(glDepthMask(GL_TRUE));
   GL_CALL(glEnable(GL_DEPTH_TEST));
-  GL_CALL(glEnable(GL_CULL_FACE));
   GL_CALL(glCullFace(GL_BACK));
   GL_CALL(glFrontFace(GL_CCW));
-
+  // GL_CALL(glEnable(GL_CULL_FACE));
   GL_CALL(glUseProgram(program));
 
   mat4 model, view, proj;
   mat4_identity(&model);
 
-  mat4_clear(&view);
+  mat4_translate(&model, &(vec3){.x = 0, .y = 0, .z = 0});
+  mat4_scale(&model, &(vec3){.x = 0.5, .y = 0.5, .z = 0.5});
+
+  mat4_identity(&view);
   camera_get_view_matrix(&view, &cam);
 
   mat4_clear(&proj);
-  mat4_perspective(&proj, DEG2RAD(90.f), 16.f / 9.f, 0.01f, 1000.f);
+  mat4_perspective(&proj, DEG2RAD(90.f), 16.f / 9.f, 0.1f, 500.f);
 
   GL_CALL(glUniformMatrix4fv(model_loc, 1, GL_FALSE, model.data));
   GL_CALL(glUniformMatrix4fv(view_loc, 1, GL_FALSE, view.data));
   GL_CALL(glUniformMatrix4fv(projection_loc, 1, GL_FALSE, proj.data));
 
   GL_CALL(glBindVertexArray(rh->internal_storage.vbo.vao_handle));
-  GL_CALL(glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, NULL));
+  GL_CALL(glDrawElements(GL_TRIANGLES, meshIndexCount, GL_UNSIGNED_INT, NULL));
 
-  nk_glfw3_new_frame();
-  if (nk_begin(
-        ctx,
-        "Demo",
-        nk_rect(50, 50, 230, 250),
-        NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
-          NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE
-      )) {
-    enum { EASY, HARD };
-    static int op       = EASY;
-    static int property = 20;
+  // nk_glfw3_new_frame();
+  // if (nk_begin(
+  //       ctx,
+  //       "Demo",
+  //       nk_rect(50, 50, 230, 250),
+  //       NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
+  //         NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE
+  //     )) {
+  //   enum { EASY, HARD };
+  //   static int op       = EASY;
+  //   static int property = 20;
+  //   nk_layout_row_static(ctx, 30, 80, 1);
 
-    nk_layout_row_static(ctx, 30, 80, 1);
-    if (nk_button_label(ctx, "button")) GAME_LOGF("button pressed");
-    nk_layout_row_dynamic(ctx, 30, 2);
+  //   char fps_str[64];
+  //   fps_str[63] = '\0';
 
-    if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
-    if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
-
-    nk_layout_row_dynamic(ctx, 25, 1);
-    nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
-    nk_layout_row_dynamic(ctx, 20, 1);
-    nk_label(ctx, "background:", NK_TEXT_LEFT);
-    nk_layout_row_dynamic(ctx, 25, 1);
-
-    if (nk_combo_begin_color(
-          ctx,
-          nk_rgb_cf(bg),
-          nk_vec2(nk_widget_width(ctx), 400)
-        )) {
-      nk_layout_row_dynamic(ctx, 120, 1);
-      bg = nk_color_picker(ctx, bg, NK_RGBA);
-      nk_layout_row_dynamic(ctx, 25, 1);
-      bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
-      bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
-      bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
-      bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
-      nk_combo_end(ctx);
-    }
-  }
-  nk_end(ctx);
-  nk_glfw3_render();
+  //   itoa(1000.0 / frametime_ms, fps_str, 10);
+  //   // nk_text(ctx, fps_str, strlen(fps_str), 0);
+  //   nk_label(ctx, fps_str, NK_TEXT_LEFT);
+  //   nk_layout_row_dynamic(ctx, 30, 2);
+  //   // if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+  //   // if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+  //   // nk_layout_row_dynamic(ctx, 25, 1);
+  //   // nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
+  //   // nk_layout_row_dynamic(ctx, 20, 1);
+  //   // nk_layout_row_dynamic(ctx, 25, 1);
+  //   // if (nk_combo_begin_color(
+  //   //       ctx,
+  //   //       nk_rgb_cf(bg),
+  //   //       nk_vec2(nk_widget_width(ctx), 400)
+  //   //     )) {
+  //   //   nk_layout_row_dynamic(ctx, 120, 1);
+  //   //   bg = nk_color_picker(ctx, bg, NK_RGBA);
+  //   //   nk_layout_row_dynamic(ctx, 25, 1);
+  //   //   bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
+  //   //   bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
+  //   //   bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
+  //   //   bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
+  //   //   nk_combo_end(ctx);
+  //   // }
+  // }
+  // nk_end(ctx);
+  // nk_glfw3_render();
 
   u64 endTime      = RGFW_getTimeNS();
   f64 frametime_ms = ((f64)(endTime - startTime)) / 1e6;
 
   if (framecount % 300 == 0) {
-    GAME_LOGF(
-      "render time: %lf ms (fps: %lf)",
+    printf(
+      "render time: %lf ms (fps: %lf)\n",
       frametime_ms,
       1000.0 / frametime_ms
     );
@@ -180,6 +171,11 @@ int main(u0) {
   create_gl_context();
   create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
 
+  import_mesh testMesh =
+    load_mesh_from_file(make_abs_path("../blackrock_lower_instance.obj"));
+
+  meshIndexCount = testMesh.index_count;
+
   float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,  0.5f,  0.5f,
                       0.5f,  -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f, 0.5f,
                       -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f,  -0.5f};
@@ -198,13 +194,23 @@ int main(u0) {
           .attribute_type   = GL_FLOAT,
           .attribute_count  = 3,
           .attribute_index  = 0
+        },
+        (vertex_attribute_info){
+          .attribute_type   = GL_FLOAT,
+          .attribute_count  = 3,
+          .attribute_index  = 1
+        },
+        (vertex_attribute_info){
+          .attribute_type   = GL_FLOAT,
+          .attribute_count  = 2,
+          .attribute_index  = 2
         }
        },
-     .num_attributes      = 1,
-     .raw_size            = sizeof(vertices),
-     .vertex_data         = (u8*)vertices,
-     .index_data          = (u8*)indices,
-     .index_count         = (sizeof(indices) / sizeof(u32)),
+     .num_attributes      = 3,
+     .raw_size            = testMesh.vertices.size * sizeof(import_vert),
+     .vertex_data         = (u8*)testMesh.vertices.data,
+     .index_data          = (u8*)testMesh.indices,
+     .index_count         = (testMesh.index_count),
      .index_type          = GL_UNSIGNED_INT
     },
    .resource_name = "my_vertex_buffer0"

@@ -11,3 +11,5 @@
 *.dll
 *.etl
 *.a
+*.obj
+*.mtl

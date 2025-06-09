@@ -11,9 +11,9 @@ build_dir_where = 'build'  # Relative to meson.build location
 # set to disable some optimizations enable detailed stacktraces, debug logs etc...
 DEBUGMODE = true
 
-
 if DEBUGMODE == true
   # Compiler arguments
+  message('building in debug mode')
   c_compiler_args = [
     '-Wall',
     '-Wextra',
@@ -25,12 +25,16 @@ if DEBUGMODE == true
     '-fomit-frame-pointer',
     '-DGAME_DEBUG'
   ]
+  cpp_compiler_args = [
+    '-Og'
+  ]
   if host_machine.kernel() == 'nt'
     c_compiler_args += ('-fplugin=' + meson.project_source_root() + '/libftrace.dll')
   else
     c_compiler_args += ['-fsanitize=address', '-fsanitize=undefined']
   endif
 else
+  message('building in release mode')
   c_compiler_args = [
     '-Wall',
     '-Wextra',
@@ -41,6 +45,11 @@ else
     '-mtune=native',
     '-fomit-frame-pointer',
     '-ffast-math',
+  ]  
+  cpp_compiler_args = [
+    '-O3',
+    '-march=native',
+    '-mtune=native',
   ]
 endif
 
@@ -57,8 +66,11 @@ output_dir = meson.project_build_root() + output_dir
 cmake = import('cmake')
 fs    = import('fs')
 
+assimp = cmake.subproject('assimp')
+assimp_lib = assimp.dependency('assimp')
+
 # Dependencies (if any)
-dependencies = []
+dependencies = [assimp_lib]
 dependencies_str = []
 foreach item : dependencies_str
   dependencies += dependency(item)
@@ -118,6 +130,7 @@ executable(output_name,
   dependencies : dependencies,
   include_directories : headers,
   c_args : c_compiler_args,
+  cpp_args : cpp_compiler_args,
   link_args : linker_args,
   install : true,
   install_dir : output_dir

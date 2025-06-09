@@ -516,7 +516,11 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
     GL_CALL(glTextureStorageMem2DEXT(sfbo.texture_handle, 1, gl_format, _screen_w, _screen_h, sfbo.memory_object, 0));
     GL_CALL(glCreateFramebuffers(1, &sfbo.fbo_handle));
     GL_CALL(glNamedFramebufferTexture(sfbo.fbo_handle, GL_COLOR_ATTACHMENT0, sfbo.texture_handle, 0));
-   
+  
+    GL_CALL(glCreateRenderbuffers(1, &sfbo.depth_rbo_handle));
+    GL_CALL(glNamedRenderbufferStorage(sfbo.depth_rbo_handle, GL_DEPTH_COMPONENT24, _screen_w, _screen_h));
+    GL_CALL(glNamedFramebufferRenderbuffer(sfbo.fbo_handle, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, sfbo.depth_rbo_handle));
+
     GLenum status = glCheckNamedFramebufferStatus(sfbo.fbo_handle, GL_DRAW_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) { GAME_LOGF("FBO incomplete: %u", status); }
     _context->swapchain.shared_fbos[i] = sfbo;
@@ -803,6 +807,7 @@ u0 destroy_vulkan_context(vk_context *_context)
   if (rb->shared_fbos) {
     for (usize i = 0; i < rb->count_fbos; ++i) {
       shared_fbo *fbo = &rb->shared_fbos[i];
+      if (fbo->depth_rbo_handle) GL_CALL(glDeleteRenderbuffers(1, &fbo->depth_rbo_handle));
       if (fbo->fbo_handle) GL_CALL(glDeleteFramebuffers(1, &fbo->fbo_handle));
       if (fbo->texture_handle) GL_CALL(glDeleteTextures(1, &fbo->texture_handle));
       if (fbo->memory_object) GL_CALL(glDeleteMemoryObjectsEXT(1, &fbo->memory_object));

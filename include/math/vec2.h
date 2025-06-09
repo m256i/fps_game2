@@ -12,7 +12,7 @@ here we actually always pass by value and also never done inplace
 because we can pass like 4 vec2s just through registers
 */
 typedef struct {
-  _Alignas(32) union {
+  union {
     struct {
       f32 x, y;
     };
