@@ -9,7 +9,7 @@ output_dir = '..\\compiled'  # Relative to meson.build location
 build_dir_where = 'build'  # Relative to meson.build location
 
 # set to disable some optimizations enable detailed stacktraces, debug logs etc...
-DEBUGMODE = true
+DEBUGMODE = false
 
 if DEBUGMODE == true
   # Compiler arguments
@@ -40,11 +40,13 @@ else
     '-Wextra',
     '-static-libgcc', 
     '-static-libstdc++',
-    '-O3',
+    '-Ofast',
     '-march=native',
     '-mtune=native',
     '-fomit-frame-pointer',
     '-ffast-math',
+    '-fschedule-insns',
+    '-fschedule-insns2',
   ]  
   cpp_compiler_args = [
     '-O3',
@@ -99,7 +101,7 @@ if host_machine.kernel() == 'nt'
     '-static', 
     '-static-libgcc', 
     '-static-libstdc++', 
-    '-L' + vulkan_lib,  
+    '-L' + vulkan_lib,
     '-lvulkan-1', 
     '-lole32', 
     '-lopengl32', 
@@ -117,12 +119,16 @@ else
     '-lGL',
     '-lX11',
     '-lm',
-    '-lXrandr',
-    '-fsanitize=address',
-    '-fsanitize=undefined',
-    '-lasan',
-    '-lubsan'
+    '-lXrandr'
   ]
+  if DEBUGMODE == true
+    linker_args += [ 
+      '-lasan',
+      '-lubsan',
+      '-fsanitize=address',
+      '-fsanitize=undefined'
+    ]
+  endif
 endif
 
 executable(output_name,
@@ -138,3 +144,4 @@ executable(output_name,
 
 # Print build context
 message('\033[2K\r\nsource files: \n   ', '   '.join(source_files), '\noutputs to:\n   ', output_dir + output_name, '\n')
+message('compiling with:\n c_args:   ', c_compiler_args,'\n cpp_args: ',cpp_compiler_args,'\n link_args:',linker_args)

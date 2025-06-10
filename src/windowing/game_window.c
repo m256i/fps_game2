@@ -108,6 +108,7 @@ static u0 on_focus_callback(RGFW_window *win, RGFW_bool inFocus) {
   }
 }
 
+#ifdef GAME_DEBUG
 static u0 APIENTRY debug_callback(
   GLenum        source,
   GLenum        type,
@@ -129,6 +130,19 @@ static u0 APIENTRY debug_callback(
     message
   );
 }
+#else
+static u0 APIENTRY debug_callback(
+  GLenum        source,
+  GLenum        type,
+  GLuint        id,
+  GLenum        severity,
+  GLsizei       length,
+  const GLchar *message,
+  const void   *userParam
+) {
+  (u0)0;
+}
+#endif
 
 u0 create_gl_context(u0) {
 #ifdef _WIN64
@@ -145,11 +159,9 @@ u0 create_gl_context(u0) {
     exit(1);
   }
 
-#ifdef GAME_DEBUG
   glEnable(GL_DEBUG_OUTPUT);
   glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
   glDebugMessageCallback(debug_callback, 0);
-#endif
 
   GAME_LOGF("OpenGL version: %s", glGetString(GL_VERSION));
 #endif

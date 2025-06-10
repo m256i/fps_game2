@@ -46,7 +46,7 @@ bool render(u0) {
   u64 startTime = RGFW_getTimeNS();
 
   GL_CALL(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
-  GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT););
+  GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
   GL_CALL(glDepthMask(GL_TRUE));
   GL_CALL(glEnable(GL_DEPTH_TEST));
