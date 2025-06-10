@@ -480,13 +480,25 @@ u0 initialize_vulkan_context(vk_context *_context, HWND _window_handle, usize _s
         .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
         .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
     };
-    VkMemoryAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = &exportAlloc,
-        .allocationSize = req.size,
-        .memoryTypeIndex = find_mem_type(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, phys_dev),
+
+    VkMemoryDedicatedAllocateInfo dedicatedAlloc = {
+      .sType  = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+      .image  = _context->images[i],
+      .buffer = VK_NULL_HANDLE,
     };
 
+    VkMemoryAllocateInfo alloc_info = {
+      .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .pNext           = &exportAlloc,
+      .allocationSize  = req.size,
+      .memoryTypeIndex = find_mem_type(
+          req.memoryTypeBits,
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+          phys_dev
+      ),
+    };
+    
+    exportAlloc.pNext = &dedicatedAlloc;
   
     vkAllocateMemory(device, &alloc_info, NULL, &_context->image_memories[i]);
     vkBindImageMemory(device, _context->images[i], _context->image_memories[i], 0);
