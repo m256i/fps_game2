@@ -196,11 +196,9 @@ u0 create_global_window(
   global_window->render_mode   = _render_mode;
 
 #ifdef _WIN64
-  if (_render_mode == RENDER_MODE_FRAME_PACE_EXP ||
-      _render_mode == RENDER_MODE_FRAME_PACE_EXP) {
+  if (_render_mode == RENDER_MODE_FRAME_PACE_EXP) {
     GAME_CRITICALF(
-      "using either RENDER_MODE_FRAME_PACE_EXP or "
-      "RENDER_MODE_FRAME_PACE_EXP remember to turn off G-Sync"
+      "using RENDER_MODE_FRAME_PACE_EXP remember to turn off G-Sync"
     );
   }
 
