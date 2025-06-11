@@ -13,27 +13,21 @@
 #include <containers/str_hash_table.h>
 #include <util/dbg/strace.h>
 #include <renderer/gl_resource_manager.h>
-#include <gui/debug_menu.h>
-#include <gui/nuklear.h>
 #include <renderer/gl_api.h>
 #include <renderer/camera.h>
 #include <renderer/meshing/import_mesh.h>
 
-#include "../debug_font.h"
+#include <gui/dbg/raster_font.h>
 
 GLint  model_loc;
 GLint  view_loc;
 GLint  projection_loc;
 GLuint program;
 
-struct nk_context *ctx;
-
 gl_resource_handle rh = {0}, tex_handle = {0}, shader_handle = {0};
 
 #define MAX_VERTEX_BUFFER  512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
-
-struct nk_colorf bg;
 
 static game_camera cam;
 u0 mouse_cb(RGFW_window *win, RGFW_point point, RGFW_point vector) {
@@ -76,50 +70,6 @@ bool render(u0) {
   GL_CALL(glBindVertexArray(rh->internal_storage.vbo.vao_handle));
   GL_CALL(glDrawElements(GL_TRIANGLES, meshIndexCount, GL_UNSIGNED_INT, NULL));
 
-  // nk_glfw3_new_frame();
-  // if (nk_begin(
-  //       ctx,
-  //       "Demo",
-  //       nk_rect(50, 50, 230, 250),
-  //       NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
-  //         NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE
-  //     )) {
-  //   enum { EASY, HARD };
-  //   static int op       = EASY;
-  //   static int property = 20;
-  //   nk_layout_row_static(ctx, 30, 80, 1);
-
-  //   char fps_str[64];
-  //   fps_str[63] = '\0';
-
-  //   itoa(1000.0 / frametime_ms, fps_str, 10);
-  //   // nk_text(ctx, fps_str, strlen(fps_str), 0);
-  //   nk_label(ctx, fps_str, NK_TEXT_LEFT);
-  //   nk_layout_row_dynamic(ctx, 30, 2);
-  //   // if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
-  //   // if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
-  //   // nk_layout_row_dynamic(ctx, 25, 1);
-  //   // nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
-  //   // nk_layout_row_dynamic(ctx, 20, 1);
-  //   // nk_layout_row_dynamic(ctx, 25, 1);
-  //   // if (nk_combo_begin_color(
-  //   //       ctx,
-  //   //       nk_rgb_cf(bg),
-  //   //       nk_vec2(nk_widget_width(ctx), 400)
-  //   //     )) {
-  //   //   nk_layout_row_dynamic(ctx, 120, 1);
-  //   //   bg = nk_color_picker(ctx, bg, NK_RGBA);
-  //   //   nk_layout_row_dynamic(ctx, 25, 1);
-  //   //   bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
-  //   //   bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
-  //   //   bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
-  //   //   bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
-  //   //   nk_combo_end(ctx);
-  //   // }
-  // }
-  // nk_end(ctx);
-  // nk_glfw3_render();
-
   u64 endTime      = RGFW_getTimeNS();
   f64 frametime_ms = ((f64)(endTime - startTime)) / 1e6;
 
@@ -160,17 +110,11 @@ void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
 
 int main(u0) {
 
-  i32 bmp_w, bmp_h;
+  raster_font_atlas atlas = FNT_bake_atlas();
 
-  u8 *text_bmp = FNT_bake_string_to_bmp(
-    "abcdefghijklmnopqrstuvwxyz\n"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
-    "0123456789",
-    &bmp_w,
-    &bmp_h
-  );
-
-  write_bmp("testo.bmp", text_bmp, bmp_w, bmp_h);
+  printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'a'));
+  printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'A'));
+  printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, '#'));
 
   setup_stacktrace();
   FILE *lf = fopen("./game_logs.txt", "w");
@@ -180,7 +124,6 @@ int main(u0) {
   }
   log_add_fp(lf, LOG_TRACE);
   GAME_LOGF("initialising game client version %s", GAME_CLIENT_VER_STR);
-  /* wont get printed in release mode */
   GAME_LOGF("engine (ver: " GAME_CLIENT_VER_STR ")  running in debug mode");
 
   create_gl_context();
@@ -191,6 +134,7 @@ int main(u0) {
 
   meshIndexCount = testMesh.index_count;
 
+  /* default cube */
   float vertices[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,  0.5f,  0.5f,
                       0.5f,  -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f, 0.5f,
                       -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f,  -0.5f};
@@ -302,19 +246,6 @@ int main(u0) {
   //   rd2.desc.image_texture.width,
   //   rd2.desc.image_texture.height
   // );
-
-  ctx = nk_glfw3_init(
-    get_global_internal_window(),
-    NK_GLFW3_INSTALL_CALLBACKS,
-    MAX_VERTEX_BUFFER,
-    MAX_ELEMENT_BUFFER
-  );
-
-  {
-    struct nk_font_atlas *atlas;
-    nk_glfw3_font_stash_begin((void **)&atlas);
-    nk_glfw3_font_stash_end();
-  }
 
   program = (GLuint)shader_handle->internal_storage.shader;
   printf("program %u\n", program);
