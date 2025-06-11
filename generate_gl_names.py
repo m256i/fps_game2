@@ -23,7 +23,6 @@ def parse_defines(header_path):
                 continue
             name_to_val[name] = val
 
-    # invert to value -> [names]
     value_to_names = {}
     for name, val in name_to_val.items():
         value_to_names.setdefault(val, []).append(name)
@@ -40,9 +39,7 @@ def generate_c_header(mapping, out_path, guard='GLAD_ENUM_NAME_MAP_H'):
         out.write("static inline const char *glad_enum_name(GLenum value) {\n")
         out.write("    switch (value) {\n")
         for val, names in sorted(mapping.items(), key=lambda kv: kv[0]):
-            # use the first name as the switch label
             label = names[0]
-            # build the returned string
             if len(names) == 1:
                 ret = f"\"{names[0]}\""
             else:

@@ -19,6 +19,8 @@
 #include <renderer/camera.h>
 #include <renderer/meshing/import_mesh.h>
 
+#include "../debug_font.h"
+
 GLint  model_loc;
 GLint  view_loc;
 GLint  projection_loc;
@@ -157,6 +159,19 @@ void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
 }
 
 int main(u0) {
+
+  i32 bmp_w, bmp_h;
+
+  u8 *text_bmp = FNT_bake_string_to_bmp(
+    "abcdefghijklmnopqrstuvwxyz\n"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+    "0123456789",
+    &bmp_w,
+    &bmp_h
+  );
+
+  write_bmp("testo.bmp", text_bmp, bmp_w, bmp_h);
+
   setup_stacktrace();
   FILE *lf = fopen("./game_logs.txt", "w");
   if (!lf) {

@@ -14,6 +14,12 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_IMPLEMENTATION
+
+// #define NK_NO_STB_RECT_PACK_IMPLEMENTATION
+#define NK_NO_STB_TRUETYPE_IMPLEMENTATION
+// #include <renderer/internal/stb_rect_pack.h>
+#include <renderer/internal/stb_truetype.h>
+
 #include <gui/nuklear.h>
 
 #ifndef NK_GLFW_TEXT_MAX
@@ -529,7 +535,7 @@ struct nk_context *nk_glfw3_init(
 }
 
 void nk_glfw3_font_stash_begin(void **_atlas) {
-  nk_font_atlas **atlas = (nk_font_atlas **)_atlas;
+  struct nk_font_atlas **atlas = (struct nk_font_atlas **)_atlas;
   nk_font_atlas_init_default(&glfw.atlas);
   nk_font_atlas_begin(&glfw.atlas);
   *atlas = &glfw.atlas;
@@ -538,13 +544,17 @@ void nk_glfw3_font_stash_begin(void **_atlas) {
 void nk_glfw3_font_stash_end(void) {
   const void *image;
   int         w, h;
+  puts("1");
   image = nk_font_atlas_bake(&glfw.atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
+  puts("2");
   nk_glfw3_device_upload_atlas(image, w, h);
+  puts("3");
   nk_font_atlas_end(
     &glfw.atlas,
     nk_handle_id((int)glfw.ogl.font_tex_index),
     &glfw.ogl.tex_null
   );
+  puts("4");
   if (glfw.atlas.default_font)
     nk_style_set_font(&glfw.ctx, &glfw.atlas.default_font->handle);
 }

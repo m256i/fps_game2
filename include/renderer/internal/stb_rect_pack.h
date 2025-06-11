@@ -65,6 +65,8 @@
 #ifndef STB_INCLUDE_STB_RECT_PACK_H
 #define STB_INCLUDE_STB_RECT_PACK_H
 
+#include <stdio.h>
+
 #define STB_RECT_PACK_VERSION 1
 
 #ifdef STBRP_STATIC
@@ -361,7 +363,10 @@ stbrp__skyline_find_best_pos(stbrp_context *c, int width, int height) {
   stbrp_node      **prev, *node, *tail, **best = NULL;
 
   // align to multiple of c->align
-  width  = (width + c->align - 1);
+  width = (width + c->align - 1);
+
+  printf(" c->align: %lu", c->align);
+
   width -= width % c->align;
   STBRP_ASSERT(width % c->align == 0);
 

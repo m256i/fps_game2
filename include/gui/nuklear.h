@@ -4305,7 +4305,7 @@ enum nk_font_atlas_format {
     NK_FONT_ATLAS_RGBA32
 };
 
-typedef struct nk_font_atlas {
+struct nk_font_atlas {
     void *pixel;
     int tex_width;
     int tex_height;
@@ -4322,7 +4322,7 @@ typedef struct nk_font_atlas {
     struct nk_font *fonts;
     struct nk_font_config *config;
     int font_num;
-} nk_font_atlas;
+};
 
 /** some language glyph codepoint ranges */
 NK_API const nk_rune *nk_font_default_glyph_ranges(void);
@@ -31091,4 +31091,3 @@ nk_tooltipfv(struct nk_context *ctx, const char *fmt, va_list args)
 /// in libraries and brought me to create some of my own. Finally Apoorva Joshi
 /// for his single header file packer.
 */
-

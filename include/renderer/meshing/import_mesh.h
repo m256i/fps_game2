@@ -74,7 +74,8 @@ static inline import_submesh process_mesh(
   vector_import_face_reserve(&face_data, _mesh->mNumFaces);
 
   /*
-  completely skip non triangle meshes
+  completely skip non triangle meshes since we triangulate and then sort by
+  ptypes so we can effectively skip degenerate verts with this setup
   */
   if ((_mesh->mPrimitiveTypes & aiPrimitiveType_TRIANGLE) == 0)
     return (import_submesh){0};
@@ -137,14 +138,25 @@ static inline import_submesh process_mesh(
     );
   }
 
-  /*
-  TODO: load textures linked to object
-  */
   const struct aiMaterial *material = _scene->mMaterials[_mesh->mMaterialIndex];
 
-  for (usize i = 0; i != material->mNumProperties; i++) {
-    struct aiMaterialProperty *p = material->mProperties[i];
-    GAME_LOGF("material property: %s", p->mKey.data);
+  for (usize i = 0;
+       i != aiGetMaterialTextureCount(material, aiTextureType_DIFFUSE);
+       i++) {
+    struct aiString texture_path;
+    aiGetMaterialTexture(
+      material,
+      aiTextureType_DIFFUSE,
+      i,
+      &texture_path,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      NULL
+    );
+    printf("material texture path: %s\n", texture_path.data);
   }
 
   return (import_submesh){
