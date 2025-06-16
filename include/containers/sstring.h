@@ -39,7 +39,7 @@ static inline usize next_sstring_cap(usize _size) {
 }
 
 /* presumably better codegen than checking if a single BIT is set  */
-static inline __attribute__((const)) bool sstring_uses_stack(sstring _str) {
+static inline __attribute__((const)) bool sstring_uses_heap(sstring _str) {
   return _str.last_byte > 0x7f;
 }
 
@@ -82,13 +82,11 @@ static inline sstring sstring_from_string(char *_str, usize _strlen) {
 static inline char *sstring_at(sstring *_str) {}
 
 static inline u0 destroy_sstring(sstring *_str) {
-  if (_str->uses_heap) {
+  if (sstring_uses_heap(*_str)) {
     TRACKED_FREE(_str->data);
     _str->data = 0;
   }
-#ifdef GAME_DEBUG
   memset(_str, 0, sizeof *_str);
-#endif
 }
 
 #endif // CONTAINERS_SSTRING_H_
