@@ -8,7 +8,7 @@
 #define SSTRING_SSO_SIZE 15
 
 /*
--- short string that can hold up to USHORT_MAX - 1 many chars
+-- short string that can hold up to UINT32_MAX - 1 many chars
 -- it uses SSO of 15 bytes and still is only 16 bytes in total
 -- default initialization is very cheap
 */
@@ -16,8 +16,8 @@ typedef struct {
   union {
     struct __attribute__((packed)) {
       char *data;
-      u16   size;
-      u8    cap_exponent;                /* capacity is 2^cap_exponent */
+      u32   size;
+      u16   cap_exponent;                /* capacity is 2^cap_exponent */
     };
     struct {
       char stack_buff[SSTRING_SSO_SIZE]; /*make sure its (2^N - 1) sized */
@@ -38,7 +38,7 @@ static inline usize next_sstring_cap(usize _size) {
   return __builtin_clz(_size) + 1;
 }
 
-/* presumably better codegen than checking if a single BIT is set  */
+/* better codegen than checking if a single BIT is set  */
 static inline __attribute__((const)) bool sstring_uses_heap(sstring _str) {
   return _str.last_byte > 0x7f;
 }
@@ -79,7 +79,26 @@ static inline sstring sstring_from_string(char *_str, usize _strlen) {
   return out;
 }
 
-static inline char *sstring_at(sstring *_str) {}
+static inline char *sstring_at(sstring *_str, usize _index) {
+  GAME_ASSERT(_str);
+  GAME_ASSERT(_str->data);
+
+  if (sstring_uses_heap(*_str)) {
+    return &_str->data[_index];
+  }
+  return &_str->stack_buff[_index];
+}
+
+static inline u0 sstring_append(sstring *_dst, sstring *_str0) {
+  GAME_ASSERT(_str0);
+  GAME_ASSERT(_str0->data);
+  GAME_ASSERT(_dst);
+  GAME_ASSERT(_dst->data);
+
+  if (!sstring_uses_heap(*_dst)) {
+    if () } else {
+  }
+}
 
 static inline u0 destroy_sstring(sstring *_str) {
   if (sstring_uses_heap(*_str)) {
