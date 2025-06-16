@@ -23,8 +23,8 @@ static inline char *strclone(char *_src) {
   return nstr;
 }
 
-static inline char *strnclone_s(char *_src, usize _maxsize) {
-  char       *nstr = strcpy_safe( _src, _maxsize);
+static inline char *strnclone_s(const char *_src, usize _maxsize) {
+  char *nstr = strcpy_safe(_src, _maxsize);
   return nstr;
 }
 

@@ -82,10 +82,12 @@ u0 *tracked_aligned_malloc(
 u0 *tracked_realloc(u0 *_ptr, usize _size, const char *_function) {
   pthread_mutex_lock(&alloc_mutex);
   init();
-  hashmap_delete(
-    alloc_map,
-    &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
-  );
+  if (_ptr) {
+    hashmap_delete(
+      alloc_map,
+      &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
+    );
+  }
   u0 *mem = realloc(_ptr, _size);
   hashmap_set(
     alloc_map,

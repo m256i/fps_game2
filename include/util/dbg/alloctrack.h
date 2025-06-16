@@ -20,7 +20,7 @@
 #define TRACKED_MALLOC(_size) malloc(_size)
 #define TRACKED_ALIGNED_MALLOC(_size, _alignment)                              \
   _aligned_malloc(_size, _alignment)
-#define TRACKED_REALLOC(_ptr, _size)  realloc(_ptr, _size)
+#define(_ptr, TRACKED_REALLOC _size) realloc(_ptr, _size)
 #define TRACKED_CALLOC(_count, _size) calloc(_count, _size)
 #define TRACKED_FREE(_ptr)            free(_ptr)
 #define TRACKED_ALIGNED_FREE(_ptr)    _aligned_free(_ptr)

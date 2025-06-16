@@ -1,6 +1,6 @@
 project('CHANGEME', ['c'],
   version : '0.1',
-  default_options : ['warning_level=3', 'c_std=c11', 'buildtype=release', 'optimization=3', 'debug=false'])
+  default_options : ['warning_level=3', 'c_std=c11', 'buildtype=release', 'optimization=0', 'debug=false'])
 # To build in release mode, run: meson setup build --buildtype=release
 
 # DO NOT change variable names; AMCA relies on these.

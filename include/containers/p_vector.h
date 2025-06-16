@@ -28,11 +28,13 @@ typedef void *(*vec_copy_fn)(const void *);
     vec_copy_fn       cp,                                                      \
     vec_destructor_fn dt                                                       \
   ) {                                                                          \
-    return (vector_##TYPE                                                      \
+    return (                                                                   \
+      vector_##TYPE                                                            \
     ){.data = NULL, .size = 0, .capacity = 0, .dtor = dt, .copier = cp};       \
   }                                                                            \
   static inline vector_##TYPE vector_##TYPE##_create_() {                      \
-    return (vector_##TYPE                                                      \
+    return (                                                                   \
+      vector_##TYPE                                                            \
     ){.data = NULL, .size = 0, .capacity = 0, .dtor = NULL, .copier = NULL};   \
   }                                                                            \
                                                                                \
@@ -232,5 +234,6 @@ typedef void *(*vec_copy_fn)(const void *);
     v->size -= n;                                                              \
     return 0;                                                                  \
   }
+// TODO: implement get & at
 
 #endif // P_VECTOR_H

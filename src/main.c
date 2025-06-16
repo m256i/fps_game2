@@ -18,6 +18,7 @@
 #include <renderer/meshing/import_mesh.h>
 
 #include <gui/dbg/raster_font.h>
+#include <gui/dbg/debug_overlay.h>
 
 GLint  model_loc;
 GLint  view_loc;
@@ -108,7 +109,26 @@ void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
   }
 }
 
-int main(u0) {
+i32 main(u0) {
+  debug_overlay overlay = {0};
+  DBG_debug_overlay_initialize(
+    &overlay,
+    (debug_overlay_line[]){{
+      .name = "line0",
+      .fmt  = "FPS: %10f asdasd %14vec3",
+      .page = 0,
+    }},
+    1
+  );
+
+  puts("hello");
+
+  for (usize i = 0; i != overlay.line_count; i++) {
+    const parsed_overlay_line *line = &overlay.lines[i];
+    printf("'%s'\n", line->format_string);
+  }
+
+  return 0;
 
   raster_font_atlas atlas = FNT_bake_atlas();
 

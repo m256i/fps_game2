@@ -15,8 +15,7 @@ typedef enum {
   RENDER_MODE_VSYNC,
   /* renders and presents with accurate timing */
   RENDER_MODE_FRAME_PACE_EXP
-  /* (experimental might not work but should result in lowest latency when
-     working)  */
+  /* (might not work but should result in lowest latency when working)  */
 } render_mode;
 /* the fbos that wrap the textures that vulkan owns */
 typedef struct {
