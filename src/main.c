@@ -16,6 +16,7 @@
 #include <renderer/gl_api.h>
 #include <renderer/camera.h>
 #include <renderer/meshing/import_mesh.h>
+#include <containers/sstring.h>
 
 #include <gui/dbg/raster_font.h>
 #include <gui/dbg/debug_overlay.h>
@@ -110,25 +111,56 @@ void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
 }
 
 i32 main(u0) {
-  debug_overlay overlay = {0};
-  DBG_debug_overlay_initialize(
-    &overlay,
-    (debug_overlay_line[]){{
-      .name = "line0",
-      .fmt  = "FPS: %10f asdasd %14vec3",
-      .page = 0,
-    }},
-    1
+  setbuf(stdout, NULL);
+  sstring a = sstring_from_cstring("hello noobs");
+  sstring b = sstring_from_cstring(" aher string");
+
+  printf("len a: %zu\n", sstring_length(&a));
+  printf("len b: %zu\n", sstring_length(&b));
+
+  sstring_append(&a, &b);
+  puts((char[]){*sstring_at(&a, 10), '\0'});
+  printf("string : '%s'\n", a.data);
+
+  sstring c = sstring_substr(&a, 3, 13);
+  printf("substr: '%s'\n", sstring_data(&c));
+
+  sstring_insert(&a, (sstring[]){sstring_from_cstring("[insert]")}, 7);
+
+  printf("inserted: '%s'\n", sstring_data(&a));
+
+  printf(
+    "found location: %p\n",
+    sstring_find(&a, (sstring[]){sstring_from_cstring("[insert]")})
   );
 
-  puts("hello");
+  printf(
+    "found location: %p\n",
+    sstring_find(&b, (sstring[]){sstring_from_cstring("string")})
+  );
 
-  for (usize i = 0; i != overlay.line_count; i++) {
-    const parsed_overlay_line *line = &overlay.lines[i];
-    printf("'%s'\n", line->format_string);
-  }
+  sstring_push_n(&a, 'b', 5);
+  printf("pushed: '%s'\n", sstring_data(&a));
 
   return 0;
+
+  // debug_overlay overlay = {0};
+  // DBG_debug_overlay_initialize(
+  //   &overlay,
+  //   (debug_overlay_line[]){{
+  //     .name = "line0",
+  //     .fmt  = "FPS: %10f asdasd %14vec3",
+  //     .page = 0,
+  //   }},
+  //   1
+  // );
+
+  // puts("hello");
+
+  // for (usize i = 0; i != overlay.line_count; i++) {
+  //   const parsed_overlay_line *line = &overlay.lines[i];
+  //   printf("'%s'\n", line->format_string);
+  // }
 
   raster_font_atlas atlas = FNT_bake_atlas();
 

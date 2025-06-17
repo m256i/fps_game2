@@ -9,7 +9,7 @@ output_dir = '..\\compiled'  # Relative to meson.build location
 build_dir_where = 'build'  # Relative to meson.build location
 
 # set to disable some optimizations enable detailed stacktraces, debug logs etc...
-DEBUGMODE = true
+DEBUGMODE = false
 
 if DEBUGMODE == true
   # Compiler arguments

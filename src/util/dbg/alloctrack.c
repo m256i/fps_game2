@@ -8,8 +8,12 @@
 
 #include <containers/hashmap.h>
 
+#define VERBOSE_TRACKING
+
 typedef struct {
   uptr        address;
+  usize       alloc_size;
+  usize       alignment;
   const char *alloc_loc;
 } alloc_block;
 
@@ -49,9 +53,16 @@ u0 *tracked_malloc(usize _size, const char *_function) {
   pthread_mutex_lock(&alloc_mutex);
   init();
   u0 *mem = malloc(_size);
+  GAME_ASSERT(mem);
+  // GAME_LOGF("TRACKED_MALLOC() called!");
   hashmap_set(
     alloc_map,
-    &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
+    &(alloc_block){
+      .address    = (uptr)mem,
+      .alloc_size = _size,
+      .alignment  = _Alignof(u0 *),
+      .alloc_loc  = _function,
+    }
   );
   pthread_mutex_unlock(&alloc_mutex);
   return mem;
@@ -70,10 +81,15 @@ u0 *tracked_aligned_malloc(
 #else
   u0 *mem = aligned_alloc(_alignment, _size);
 #endif
-
+  GAME_ASSERT(mem);
   hashmap_set(
     alloc_map,
-    &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
+    &(alloc_block){
+      .address    = (uptr)mem,
+      .alloc_size = _size,
+      .alignment  = _alignment,
+      .alloc_loc  = _function,
+    }
   );
   pthread_mutex_unlock(&alloc_mutex);
   return mem;
@@ -83,15 +99,43 @@ u0 *tracked_realloc(u0 *_ptr, usize _size, const char *_function) {
   pthread_mutex_lock(&alloc_mutex);
   init();
   if (_ptr) {
-    hashmap_delete(
-      alloc_map,
-      &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
-    );
+    size_t       iter = 0;
+    alloc_block *item = NULL;
+    while (hashmap_iter(alloc_map, &iter, (u0 **)&item)) {
+      const alloc_block *block = item;
+      if (block->address == (uptr)_ptr) {
+        break;
+      } else {
+        item = NULL;
+      }
+    }
+    if (item) {
+#ifdef VERBOSE_TRACKING
+      GAME_LOGF("TRACKED_REALLOC() on previously allocated item:");
+      GAME_LOGF("   size      : %zu", item->alloc_size);
+      GAME_LOGF("   align     : %zu", item->alignment);
+      GAME_LOGF("   ptr       : %zu", item->address);
+      GAME_LOGF("   new size  : %zu", _size);
+#endif
+      if (!hashmap_delete(alloc_map, item)) {
+        GAME_CRITICALF(
+          "TRACKED_REALLOC() on unknown address: %p size: %zu",
+          _ptr,
+          _size
+        );
+      }
+    }
   }
   u0 *mem = realloc(_ptr, _size);
+  GAME_ASSERT(mem);
   hashmap_set(
     alloc_map,
-    &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
+    &(alloc_block){
+      .address    = (uptr)mem,
+      .alloc_size = _size,
+      .alignment  = _Alignof(u0 *),
+      .alloc_loc  = _function,
+    }
   );
   pthread_mutex_unlock(&alloc_mutex);
   return mem;
@@ -101,9 +145,15 @@ u0 *tracked_calloc(usize _count, usize _size, const char *_function) {
   pthread_mutex_lock(&alloc_mutex);
   init();
   u0 *mem = calloc(_count, _size);
+  GAME_ASSERT(mem);
   hashmap_set(
     alloc_map,
-    &(alloc_block){.address = (uptr)mem, .alloc_loc = _function}
+    &(alloc_block){
+      .address    = (uptr)mem,
+      .alloc_size = _size,
+      .alignment  = _Alignof(u0 *),
+      .alloc_loc  = _function,
+    }
   );
   pthread_mutex_unlock(&alloc_mutex);
   return mem;
@@ -112,15 +162,21 @@ u0 *tracked_calloc(usize _count, usize _size, const char *_function) {
 u0 tracked_free(u0 *_ptr, const char *_function) {
   pthread_mutex_lock(&alloc_mutex);
   init();
-  if (!hashmap_delete(
-        alloc_map,
-        &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
-      )) {
-    GAME_CRITICALF("free on unknown item %p in: %s", _ptr, _function);
-  }
 
   if (!_ptr) {
     GAME_CRITICALF("free on NULL in %s", _function);
+  }
+
+  size_t iter = 0;
+  void  *item;
+  while (hashmap_iter(alloc_map, &iter, &item)) {
+    const alloc_block *block = item;
+    if (block->address == (uptr)_ptr) {
+      if (!hashmap_delete(alloc_map, item)) {
+        GAME_CRITICALF("free on unknown item %p in: %s", _ptr, _function);
+      }
+      break;
+    }
   }
 
   free(_ptr);
@@ -130,15 +186,21 @@ u0 tracked_free(u0 *_ptr, const char *_function) {
 u0 tracked_aligned_free(u0 *_ptr, const char *_function) {
   pthread_mutex_lock(&alloc_mutex);
   init();
-  if (!hashmap_delete(
-        alloc_map,
-        &(alloc_block){.address = (uptr)_ptr, .alloc_loc = _function}
-      )) {
-    GAME_CRITICALF("free on unknown item %p in: %s", _ptr, _function);
-  }
 
   if (!_ptr) {
     GAME_CRITICALF("free on NULL in %s", _function);
+  }
+
+  size_t iter = 0;
+  void  *item;
+  while (hashmap_iter(alloc_map, &iter, &item)) {
+    const alloc_block *block = item;
+    if (block->address == (uptr)_ptr) {
+      if (!hashmap_delete(alloc_map, item)) {
+        GAME_CRITICALF("free on unknown item %p in: %s", _ptr, _function);
+      }
+      break;
+    }
   }
 
 #ifdef _WIN64
@@ -161,9 +223,11 @@ u0 dump_alloc_statistics(u0) {
   while (hashmap_iter(alloc_map, &iter, &item)) {
     const alloc_block *block = item;
     printf(
-      "  > %p block allocated in %s still in use \n",
+      "  > %p block allocated in %s (size: %zu alignment: %zu) still in use \n",
       (u0 *)block->address,
-      block->alloc_loc
+      block->alloc_loc,
+      block->alloc_size,
+      block->alignment
     );
   }
   pthread_mutex_unlock(&alloc_mutex);
