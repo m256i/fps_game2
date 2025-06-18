@@ -114,7 +114,7 @@ u0 *tracked_realloc(u0 *_ptr, usize _size, const char *_function) {
       GAME_LOGF("TRACKED_REALLOC() on previously allocated item:");
       GAME_LOGF("   size      : %zu", item->alloc_size);
       GAME_LOGF("   align     : %zu", item->alignment);
-      GAME_LOGF("   ptr       : %zu", item->address);
+      GAME_LOGF("   ptr       : %p", (u0 *)item->address);
       GAME_LOGF("   new size  : %zu", _size);
 #endif
       if (!hashmap_delete(alloc_map, item)) {

@@ -190,7 +190,6 @@ static inline char *sstring_data(sstring *const _str) {
 
 static inline char *sstring_at(sstring *_str, usize _index) {
   GAME_ASSERT(_str);
-  GAME_ASSERT(_str->data);
   GAME_ASSERT(_index < sstring_length(_str));
   return &(sstring_data(_str)[_index]);
 }

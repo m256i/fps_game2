@@ -3,6 +3,7 @@
 #include <gui/dbg/raster_font.h>
 #include <containers/str_hash_table.h>
 #include <common.h>
+#include <util/dbg/alloctrack.h>
 
 _Alignas(32) static u8 bmp_charA_data[] = {
   255, 255, 255, 255, 255, 255, 255, 255, 255, 0,   0,   0,   0,   0,   0,
@@ -1282,7 +1283,7 @@ u8 *FNT_codepoint_to_bmp(char _codep) {
 
 u8 *FNT_bake_string_to_bmp(const char *text, usize *out_w, usize *out_h) {
   const usize glyph_w = 8, glyph_h = 8;
-  const usize row_pad = 1;
+  const usize row_pad = FNT_GLYPH_VSPACE;
 
   usize max_cols = 0;
   usize cols = 0, rows = 1;
@@ -1305,7 +1306,7 @@ u8 *FNT_bake_string_to_bmp(const char *text, usize *out_w, usize *out_h) {
   *out_h  = H;
 
   usize total_bytes = (usize)W * H * 3;
-  u8   *out         = malloc(total_bytes);
+  u8   *out         = TRACKED_MALLOC(total_bytes);
   if (!out) return NULL;
 
   memset(out, 255, total_bytes);
@@ -1347,7 +1348,7 @@ raster_font_atlas FNT_bake_atlas(u0) {
   static const char all_codepoints[] = "abcdefghijklmnopqrstuvwxyz"
                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                        "0123456789"
-                                       "{}()[]-+/#%_?=";
+                                       "{}()[]-+/#%_?=,.";
 
   u8 *atlas = FNT_bake_string_to_bmp(all_codepoints, &w, &h);
 
@@ -1361,8 +1362,7 @@ raster_font_atlas FNT_bake_atlas(u0) {
     /* hash table expects a nullterminated string */
     const char str[] = {*codepoint, '\0'};
     str_hash_table_insert(&hm, str, &U);
-
-    offset += 8;
+    offset += FNT_GLYPH_WIDTH;
     U       = (f32)offset / (f32)w;
   }
 
@@ -1374,11 +1374,20 @@ raster_font_atlas FNT_bake_atlas(u0) {
   };
 }
 
-f32 FNT_u_offset_for_codep(raster_font_atlas *const _atlas, char _codep) {
+vec4 FNT_u_offset_for_codep(raster_font_atlas *const _atlas, char _codep) {
   const char str[] = {_codep, '\0'};
-  if (str_hash_table_contains(&_atlas->codepoint_to_uv_map, str)) {
-    return *((f32 *)str_hash_table_at(&_atlas->codepoint_to_uv_map, str));
+  u0        *raw   = str_hash_table_at(&_atlas->codepoint_to_uv_map, str);
+  if (raw) {
+    const f32 u_offset = *((f32 *)raw);
+    const f32 u_max    = u_offset + ((f32)FNT_GLYPH_WIDTH / (f32)_atlas->width);
+    /* since our "atlas" is really just a single line with all glyphs the Vs
+     * will always be 0 and 1 */
+    return make_vec4(u_offset, 0, u_max, 1);
   }
   GAME_ASSERT(str_hash_table_contains(&_atlas->codepoint_to_uv_map, "?"));
-  return *((f32 *)str_hash_table_at(&_atlas->codepoint_to_uv_map, "?"));
+  /* ? as a default character for non mapped codepoints */
+  const f32 u_offset =
+    *((f32 *)str_hash_table_at(&_atlas->codepoint_to_uv_map, "?"));
+  const f32 u_max = u_offset + ((f32)FNT_GLYPH_WIDTH / (f32)_atlas->width);
+  return make_vec4(u_offset, 0, u_max, 1);
 }

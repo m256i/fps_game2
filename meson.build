@@ -9,7 +9,7 @@ output_dir = '..\\compiled'  # Relative to meson.build location
 build_dir_where = 'build'  # Relative to meson.build location
 
 # set to disable some optimizations enable detailed stacktraces, debug logs etc...
-DEBUGMODE = false
+DEBUGMODE = true
 
 if DEBUGMODE == true
   # Compiler arguments
@@ -20,13 +20,13 @@ if DEBUGMODE == true
     '-g',
     '-static-libgcc', 
     '-static-libstdc++',
-    '-Og',
+    '-O1',
     '-march=native',
     '-fomit-frame-pointer',
     '-DGAME_DEBUG'
   ]
   cpp_compiler_args = [
-    '-Og'
+    '-O1'
   ]
   if host_machine.kernel() == 'nt'
     c_compiler_args += ('-fplugin=' + meson.project_source_root() + '/libftrace.dll')

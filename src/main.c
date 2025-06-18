@@ -39,6 +39,8 @@ u0 mouse_cb(RGFW_window *win, RGFW_point point, RGFW_point vector) {
 u64   framecount     = 0;
 usize meshIndexCount = 0;
 
+debug_overlay overlay = {0};
+
 bool render(u0) {
   ++framecount;
   u64 startTime = RGFW_getTimeNS();
@@ -72,14 +74,47 @@ bool render(u0) {
   GL_CALL(glBindVertexArray(rh->internal_storage.vbo.vao_handle));
   GL_CALL(glDrawElements(GL_TRIANGLES, meshIndexCount, GL_UNSIGNED_INT, NULL));
 
+  DBG_debug_overlay_render(&overlay);
+
   u64 endTime      = RGFW_getTimeNS();
   f64 frametime_ms = ((f64)(endTime - startTime)) / 1e6;
 
-  if (framecount % 300 == 0) {
-    printf(
-      "render time: %lf ms (fps: %lf)\n",
-      frametime_ms,
-      1000.0 / frametime_ms
+  if (framecount % 100 == 0) {
+    // printf(
+    //   "render time: %lf ms (fps: %lf)\n",
+    //   frametime_ms,
+    //   1000.0 / frametime_ms
+    // );
+    DBG_set_overlay_value(
+      &overlay,
+      1,
+      0,
+      &(u32[]){(u32)(1000.0 / frametime_ms)},
+      sizeof(u32)
+    );
+
+    DBG_set_overlay_value(
+      &overlay,
+      2,
+      0,
+      &(f32[]){(f32)cam.position.x},
+      sizeof(u32)
+    );
+
+    DBG_set_overlay_value(
+      &overlay,
+      2,
+      1,
+      &(f32[]){(f32)cam.position.y},
+      sizeof(u32)
+    );
+
+    DBG_set_overlay_value(
+      &overlay,
+      2,
+      2,
+      &(f32[]){(f32)cam.position.z},
+      sizeof(u32)
     );
   }
   return true;
@@ -111,62 +146,12 @@ void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
 }
 
 i32 main(u0) {
-  setbuf(stdout, NULL);
-  sstring a = sstring_from_cstring("hello noobs");
-  sstring b = sstring_from_cstring(" aher string");
 
-  printf("len a: %zu\n", sstring_length(&a));
-  printf("len b: %zu\n", sstring_length(&b));
+  // raster_font_atlas atlas = FNT_bake_atlas();
 
-  sstring_append(&a, &b);
-  puts((char[]){*sstring_at(&a, 10), '\0'});
-  printf("string : '%s'\n", a.data);
-
-  sstring c = sstring_substr(&a, 3, 13);
-  printf("substr: '%s'\n", sstring_data(&c));
-
-  sstring_insert(&a, (sstring[]){sstring_from_cstring("[insert]")}, 7);
-
-  printf("inserted: '%s'\n", sstring_data(&a));
-
-  printf(
-    "found location: %p\n",
-    sstring_find(&a, (sstring[]){sstring_from_cstring("[insert]")})
-  );
-
-  printf(
-    "found location: %p\n",
-    sstring_find(&b, (sstring[]){sstring_from_cstring("string")})
-  );
-
-  sstring_push_n(&a, 'b', 5);
-  printf("pushed: '%s'\n", sstring_data(&a));
-
-  return 0;
-
-  // debug_overlay overlay = {0};
-  // DBG_debug_overlay_initialize(
-  //   &overlay,
-  //   (debug_overlay_line[]){{
-  //     .name = "line0",
-  //     .fmt  = "FPS: %10f asdasd %14vec3",
-  //     .page = 0,
-  //   }},
-  //   1
-  // );
-
-  // puts("hello");
-
-  // for (usize i = 0; i != overlay.line_count; i++) {
-  //   const parsed_overlay_line *line = &overlay.lines[i];
-  //   printf("'%s'\n", line->format_string);
-  // }
-
-  raster_font_atlas atlas = FNT_bake_atlas();
-
-  printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'a'));
-  printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'A'));
-  printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, '#'));
+  // printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'a'));
+  // printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'A'));
+  // printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, '#'));
 
   setup_stacktrace();
   FILE *lf = fopen("./game_logs.txt", "w");
@@ -179,7 +164,42 @@ i32 main(u0) {
   GAME_LOGF("engine (ver: " GAME_CLIENT_VER_STR ")  running in debug mode");
 
   create_gl_context();
-  create_global_window("game client", 0, 0, RENDER_MODE_FRAME_PACE_EXP);
+  create_global_window("game client", 0, 0, RENDER_MODE_IMMEDIATE);
+
+  DBG_debug_overlay_initialize(
+    &overlay,
+    (debug_overlay_line[]){{
+                             .fmt = "ENGINE VERSION: " GAME_CLIENT_VER_STR,
+                           },
+                           {
+                             .fmt = "FPS : %24u",
+                           },
+                           {
+                             .fmt = "Camera Position : %10vec3",
+                           },
+                           {
+                             .fmt = "Another Line :    %10vec4",
+                           }},
+    4,
+    1920,
+    1080
+  );
+
+  for (usize i = 0; i != overlay.line_count; i++) {
+    parsed_overlay_line *line = &overlay.lines[i];
+    for (usize j = 0; j != line->fmts.size; j++) {
+      debug_line_fmt *fmt = &line->fmts.data[j];
+      printf(
+        " fmt: \n  type: %u\n  digit_count: %u\n  ssbo "
+        "offset: %u\n  pixel_coords: {%u, %u}\n",
+        fmt->fmt_type,
+        fmt->digit_count,
+        fmt->ssbo_offset,
+        fmt->pixel_coords[0],
+        fmt->pixel_coords[1]
+      );
+    }
+  }
 
   import_mesh testMesh =
     load_mesh_from_file(make_abs_path("../blackrock_lower_instance.obj"));
