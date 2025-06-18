@@ -1374,7 +1374,15 @@ raster_font_atlas FNT_bake_atlas(u0) {
   };
 }
 
-vec4 FNT_u_offset_for_codep(raster_font_atlas *const _atlas, char _codep) {
+u0 FNT_destroy_atlas(raster_font_atlas *_atlas) {
+  if (_atlas->data) {
+    TRACKED_FREE(_atlas->data);
+    _atlas->data = NULL;
+  }
+  str_hash_table_destroy(&_atlas->codepoint_to_uv_map);
+}
+
+vec4 FNT_uv_for_codep(raster_font_atlas *const _atlas, char _codep) {
   const char str[] = {_codep, '\0'};
   u0        *raw   = str_hash_table_at(&_atlas->codepoint_to_uv_map, str);
   if (raw) {

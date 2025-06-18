@@ -218,10 +218,13 @@ u0 dump_alloc_statistics(u0) {
   pthread_mutex_lock(&alloc_mutex);
   puts("=== allocation tracker report ===");
 
+  usize total_leaked = 0;
+
   size_t iter = 0;
   void  *item;
   while (hashmap_iter(alloc_map, &iter, &item)) {
-    const alloc_block *block = item;
+    const alloc_block *block  = item;
+    total_leaked             += block->alloc_size;
     printf(
       "  > %p block allocated in %s (size: %zu alignment: %zu) still in use \n",
       (u0 *)block->address,
@@ -230,5 +233,7 @@ u0 dump_alloc_statistics(u0) {
       block->alignment
     );
   }
+  printf("  (total bytes leaked: %zu)\n", total_leaked);
+  puts("=== allocation report finished ===");
   pthread_mutex_unlock(&alloc_mutex);
 }

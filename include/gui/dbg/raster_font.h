@@ -28,9 +28,10 @@ typedef struct {
 } raster_font_atlas;
 
 raster_font_atlas FNT_bake_atlas(u0);
+u0                FNT_destroy_atlas(raster_font_atlas *_atlas);
 /*
 returns the UV coordinates for the given codepoint in the atlas
 */
-vec4 FNT_u_offset_for_codep(raster_font_atlas *const _atlas, char _codep);
+vec4 FNT_uv_for_codep(raster_font_atlas *const _atlas, char _codep);
 
 #endif // GUI_DBG_RASTER_FONT_H_

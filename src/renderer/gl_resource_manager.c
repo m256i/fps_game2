@@ -598,7 +598,7 @@ create_gl_texture(gl_resource_data *const _resource_data) {
     case GL_RGB: {
       const usize total_size = ((xsize + 3) / 4) * ((ysize + 3) / 4) * 8ull;
       u8         *compressed_data = TRACKED_MALLOC(total_size);
-      compress_rgba_dxt1(compressed_data, ti->image_data, xsize, ysize);
+      compress_rgb_dxt1(compressed_data, ti->image_data, xsize, ysize);
       GL_CALL(glCompressedTexImage2D(
         GL_TEXTURE_2D,
         0,
@@ -697,21 +697,18 @@ static u0 destroy_gl_shader(
 static gl_handle_internal_storage
 create_gl_ssbo(gl_resource_data *const _resource_data) {
   GLuint ssbo;
-  GL_CALL(glGenBuffers(1, &ssbo));
-  GL_CALL(glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo));
+  GL_CALL(glCreateBuffers(1, &ssbo));
 
   GAME_ASSERT(_resource_data->desc.ssbo.byte_size > 0);
-  GAME_ASSERT(
-    _resource_data->desc.ssbo.usage == GL_STREAM_DRAW ||
-    _resource_data->desc.ssbo.usage == GL_STATIC_DRAW ||
-    _resource_data->desc.ssbo.usage == GL_DYNAMIC_DRAW ||
-    _resource_data->desc.ssbo.usage == GL_STREAM_READ ||
-    _resource_data->desc.ssbo.usage == GL_STATIC_READ ||
-    _resource_data->desc.ssbo.usage == GL_DYNAMIC_READ ||
-    _resource_data->desc.ssbo.usage == GL_STREAM_COPY ||
-    _resource_data->desc.ssbo.usage == GL_STATIC_COPY ||
-    _resource_data->desc.ssbo.usage == GL_DYNAMIC_COPY
-  );
+
+  GL_CALL(glNamedBufferStorage(
+    ssbo,
+    _resource_data->desc.ssbo.byte_size,
+    _resource_data->desc.ssbo.data,
+    _resource_data->desc.ssbo.usage
+  ));
+
+  u0 *mapped = glMapNamedBuffer(ssbo, GL_WRITE_ONLY);
 
   GL_CALL(glBufferData(
     GL_SHADER_STORAGE_BUFFER,
@@ -720,14 +717,18 @@ create_gl_ssbo(gl_resource_data *const _resource_data) {
     _resource_data->desc.ssbo.usage
   ));
 
-  return (gl_handle_internal_storage){.ssbo = ssbo};
+  return (gl_handle_internal_storage){
+    .ssbo = {.handle = ssbo, .mapped_mem = mapped}
+  };
 }
 
 static u0 destroy_gl_ssbo(
   gl_resource_data *const _resource_data,
   gl_resource_handle      _handle
 ) {
-  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.ssbo));
+  GL_CALL(glUnmapNamedBuffer(_handle->internal_storage.ssbo.handle));
+  _handle->internal_storage.ssbo.mapped_mem = NULL;
+  GL_CALL(glDeleteBuffers(1, &_handle->internal_storage.ssbo.handle));
 }
 
 static gl_handle_internal_storage

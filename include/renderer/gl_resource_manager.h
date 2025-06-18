@@ -111,6 +111,9 @@ typedef struct {
   usize                     num_outputs;
 } shader_creation_info;
 
+/*
+KEEP IN MIND THAT SSBOS ARE ALWAYS(!!!) read only in our engine
+*/
 typedef struct {
   /* this NEEDS to be the first element */
   u32    creation_info_type;
@@ -214,7 +217,10 @@ typedef struct {
     GLuint fbo;
     GLuint rbo;
     GLuint shader;
-    GLuint ssbo;
+    struct {
+      GLuint handle;
+      u0    *mapped_mem;
+    } ssbo;
     GLuint ubo;
 
     struct {

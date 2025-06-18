@@ -19,7 +19,7 @@ loaded_texture load_texture_from_file(
   GLenum _wrap_mode
 );
 
-u0 compress_rgba_dxt1(
+u0 compress_rgb_dxt1(
   u8 *const __restrict _dst,
   const u8 *const __restrict _src,
   usize width,

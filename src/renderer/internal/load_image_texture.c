@@ -8,49 +8,46 @@
 /*
 call this on RGB textures with no alpha
 */
-u0 compress_rgba_dxt1(
+u0 compress_rgb_dxt1(
   u8 *const __restrict _dst,
   const u8 *const __restrict _src,
   usize width,
   usize height
 ) {
-  const static usize block_size = 8; /* 8 bytes per block for DXT1 */
+  const static usize block_size = 8;
   const usize        blocks_x   = (width + 3) / 4;
   const usize        blocks_y   = (height + 3) / 4;
 
-  for (usize y = 0; y < blocks_y; ++y) {
-    for (usize x = 0; x < blocks_x; ++x) {
-      u8 *dest_block = _dst + (y * blocks_x + x) * block_size;
-      u8  block[16 * 4]; /* 16 pixels * 4 bytes per pixel (RGBA) */
+  for (usize by = 0; by < blocks_y; ++by) {
+    for (usize bx = 0; bx < blocks_x; ++bx) {
+      u8 *dest_block = _dst + (by * blocks_x + bx) * block_size;
+      u8  block[16 * 4];
 
-      for (usize by = 0; by < 4; ++by) {
-        for (usize bx = 0; bx < 4; ++bx) {
-          const usize src_x = x * 4 + bx;
-          const usize src_y = y * 4 + by;
-
+      for (usize y = 0; y < 4; ++y) {
+        for (usize x = 0; x < 4; ++x) {
+          const usize src_x = bx * 4 + x;
+          const usize src_y = by * 4 + y;
+          const usize pix   = y * 4 + x;
+          const usize bidx  = pix * 4;
           if (src_x < width && src_y < height) {
-            usize src_index   = (src_y * width + src_x) * 4;
-            usize block_index = (by * 4 + bx) * 4;
-
-            block[block_index + 0] = _src[src_index + 0];
-            block[block_index + 1] = _src[src_index + 1];
-            block[block_index + 2] = _src[src_index + 2];
-            block[block_index + 3] = _src[src_index + 3];
-
+            const usize sidx = (src_y * width + src_x) * 3;
+            block[bidx + 0]  = _src[sidx + 0];
+            block[bidx + 1]  = _src[sidx + 1];
+            block[bidx + 2]  = _src[sidx + 2];
+            block[bidx + 3]  = 255;
           } else {
-            i32 block_index        = (by * 4 + bx) * 4;
-            block[block_index + 0] = 0;
-            block[block_index + 1] = 0;
-            block[block_index + 2] = 0;
-            block[block_index + 3] = 0;
+            block[bidx + 0] = 0;
+            block[bidx + 1] = 0;
+            block[bidx + 2] = 0;
+            block[bidx + 3] = 255;
           }
         }
       }
-
       stb_compress_dxt_block(dest_block, block, 0, STB_DXT_NORMAL);
     }
   }
 }
+
 /*
 call this on RGBA textures WITH alpha
 */
@@ -174,7 +171,7 @@ loaded_texture load_texture_from_file(
     const usize total_size = ((new_size_x + 3) / 4) * ((new_size_y + 3) / 4) *
                              8ull; /* dxt1 data size */
     u8 *compressed_data = TRACKED_MALLOC(total_size);
-    compress_rgba_dxt1(
+    compress_rgb_dxt1(
       compressed_data,
       scaled_image_data,
       new_size_x,

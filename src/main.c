@@ -59,7 +59,7 @@ bool render(u0) {
   mat4_identity(&model);
 
   mat4_translate(&model, &(vec3){.x = 0, .y = 0, .z = 0});
-  mat4_scale(&model, &(vec3){.x = 0.5, .y = 0.5, .z = 0.5});
+  // mat4_scale(&model, &(vec3){.x = 1, .y = 1, .z = 1});
 
   mat4_identity(&view);
   camera_get_view_matrix(&view, &cam);
@@ -80,12 +80,7 @@ bool render(u0) {
   f64 frametime_ms = ((f64)(endTime - startTime)) / 1e6;
 
   if (framecount % 100 == 0) {
-    // printf(
-    //   "render time: %lf ms (fps: %lf)\n",
-    //   frametime_ms,
-    //   1000.0 / frametime_ms
-    // );
-    DBG_set_overlay_value(
+    DBG_set_overlay_scalar(
       &overlay,
       1,
       0,
@@ -93,29 +88,7 @@ bool render(u0) {
       sizeof(u32)
     );
 
-    DBG_set_overlay_value(
-      &overlay,
-      2,
-      0,
-      &(f32[]){(f32)cam.position.x},
-      sizeof(u32)
-    );
-
-    DBG_set_overlay_value(
-      &overlay,
-      2,
-      1,
-      &(f32[]){(f32)cam.position.y},
-      sizeof(u32)
-    );
-
-    DBG_set_overlay_value(
-      &overlay,
-      2,
-      2,
-      &(f32[]){(f32)cam.position.z},
-      sizeof(u32)
-    );
+    DBG_set_overlay_vector(&overlay, 2, 0, 3, &cam.position, sizeof(f32) * 3);
   }
   return true;
 }
@@ -146,13 +119,6 @@ void update_camera_move(game_camera *cam, RGFW_window *window, float velocity) {
 }
 
 i32 main(u0) {
-
-  // raster_font_atlas atlas = FNT_bake_atlas();
-
-  // printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'a'));
-  // printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, 'A'));
-  // printf("a uoffset: %f\n", FNT_u_offset_for_codep(&atlas, '#'));
-
   setup_stacktrace();
   FILE *lf = fopen("./game_logs.txt", "w");
   if (!lf) {
@@ -172,7 +138,7 @@ i32 main(u0) {
                              .fmt = "ENGINE VERSION: " GAME_CLIENT_VER_STR,
                            },
                            {
-                             .fmt = "FPS : %24u",
+                             .fmt = "FPS : %10u",
                            },
                            {
                              .fmt = "Camera Position : %10vec3",
@@ -184,22 +150,6 @@ i32 main(u0) {
     1920,
     1080
   );
-
-  for (usize i = 0; i != overlay.line_count; i++) {
-    parsed_overlay_line *line = &overlay.lines[i];
-    for (usize j = 0; j != line->fmts.size; j++) {
-      debug_line_fmt *fmt = &line->fmts.data[j];
-      printf(
-        " fmt: \n  type: %u\n  digit_count: %u\n  ssbo "
-        "offset: %u\n  pixel_coords: {%u, %u}\n",
-        fmt->fmt_type,
-        fmt->digit_count,
-        fmt->ssbo_offset,
-        fmt->pixel_coords[0],
-        fmt->pixel_coords[1]
-      );
-    }
-  }
 
   import_mesh testMesh =
     load_mesh_from_file(make_abs_path("../blackrock_lower_instance.obj"));
@@ -283,21 +233,19 @@ i32 main(u0) {
       .fragment_path  = fp,
     }
   };
-
   // clang-format on
-
   request_gl_resource(&rd, &rh);
-
-  // request_gl_resource(&rd2, &tex_handle);
-  // request_gl_resource(&rd3, &tex_handle);
   request_gl_resource(&rd4, &shader_handle);
+
+  TRACKED_FREE(testMesh.indices);
+  vector_import_vert_free(&testMesh.vertices);
 
   TRACKED_FREE(vp);
   TRACKED_FREE(fp);
 
   camera_initialize(
     &cam,
-    make_vec3(-4, 0, 0),
+    make_vec3(0, 0, 0),
     CAMERA_INITIAL_YAW,
     CAMERA_INITIAL_PITCH
   );
@@ -312,12 +260,6 @@ i32 main(u0) {
     -- make internal functions have internal linkage
     -- add namespace prefixes to functions
   */
-
-  // GAME_LOGF(
-  //   "texture dimensions after load: %lu %lu",
-  //   rd2.desc.image_texture.width,
-  //   rd2.desc.image_texture.height
-  // );
 
   program = (GLuint)shader_handle->internal_storage.shader;
   printf("program %u\n", program);
@@ -334,23 +276,15 @@ i32 main(u0) {
 
   window_set_render_proc(render);
 
-  // while (!window_should_close()) {
-  //   update_camera_move(&cam, get_global_internal_window(), 0.0001);
-  //   window_run_render_proc();
-  // }
   double last_time = RGFW_getTimeNS();
-  float  speed     = 10;
+  float  speed     = 20;
 
   while (!window_should_close()) {
     double current_time = RGFW_getTimeNS();
     double delta_time   = (current_time - last_time) / 1e9;
     last_time           = current_time;
 
-    update_camera_move(
-      &cam,
-      get_global_internal_window(),
-      speed * delta_time
-    ); // adjust speed multiplier
+    update_camera_move(&cam, get_global_internal_window(), speed * delta_time);
 
     window_run_render_proc();
   }
@@ -358,6 +292,8 @@ i32 main(u0) {
   destroy_gl_resource(&rd, &rh);
   destroy_gl_resource(&rd4, &shader_handle);
   // destroy_gl_resource(&rd3, &tex_handle);
+
+  DBG_destroy_debug_overlay(&overlay);
 
   destroy_global_window();
   fclose(lf);
